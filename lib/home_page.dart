@@ -6,8 +6,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'database/app_database.dart';
+import 'services/file_text_extractor.dart';
 
-// ملف محفوظ داخل مساحة التطبيق (بديل عن إنشاء PlatformFile يدويًا)
+// ملف محفوظ داخل مساحة التطبيق
 class _SavedFile {
   final int id;
   final String name;
@@ -103,6 +104,7 @@ class _HomePageState extends State<HomePage> {
   // اختيار الملفات ونسخها إلى مساحة التطبيق وحفظ بياناتها
   Future<void> pickFiles() async {
     try {
+      // الإصدار الجديد يرجع قائمة مباشرة (فارغة إذا ألغى المستخدم)
       final List<PlatformFile> files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: allowedExtensions,
@@ -116,7 +118,8 @@ class _HomePageState extends State<HomePage> {
       int skipped = 0;
 
       for (final file in files) {
-        final ext = p.extension(file.name).replaceFirst('.', '').toLowerCase();
+        final ext =
+            p.extension(file.name).replaceFirst('.', '').toLowerCase();
 
         if (!allowedExtensions.contains(ext) || file.path == null) {
           skipped++;
@@ -145,7 +148,6 @@ class _HomePageState extends State<HomePage> {
             '${DateTime.now().microsecondsSinceEpoch}_${p.basename(file.name)}';
         final savedPath = p.join(appDirectory.path, savedName);
 
-        // نسخة خاصة بالتطبيق حتى لا يعتمد على الملف الأصلي
         await sourceFile.copy(savedPath);
 
         try {
@@ -156,7 +158,6 @@ class _HomePageState extends State<HomePage> {
             dateAdded: DateTime.now().toIso8601String(),
           );
         } catch (e) {
-          // حذف النسخة إذا فشل حفظ بياناتها في قاعدة البيانات
           final copied = File(savedPath);
           if (await copied.exists()) await copied.delete();
           rethrow;
@@ -165,7 +166,6 @@ class _HomePageState extends State<HomePage> {
         added++;
       }
 
-      // إعادة التحميل من قاعدة البيانات للحصول على المعرّفات (id)
       await loadSavedFiles();
 
       if (!mounted) return;
@@ -181,6 +181,67 @@ class _HomePageState extends State<HomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Could not save files. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  // استخراج النص من الملف وعرضه
+  Future<void> extractFileText(_SavedFile file) async {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Extracting text...'),
+        duration: Duration(seconds: 30),
+      ),
+    );
+
+    try {
+      final extractedText = await FileTextExtractor.extractText(
+        path: file.path,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            'Extracted Text: ${file.name}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                extractedText.isEmpty
+                    ? 'No text was found in this file.'
+                    : extractedText,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('CLOSE'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not extract text: $e'),
+          duration: const Duration(seconds: 8),
         ),
       );
     }
@@ -373,6 +434,12 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ],
                       ),
+                    ),
+
+                    IconButton(
+                      onPressed: () => extractFileText(file),
+                      tooltip: 'Extract text',
+                      icon: const Icon(Icons.text_snippet_outlined),
                     ),
 
                     IconButton(
