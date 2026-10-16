@@ -1,25 +1,34 @@
 
-import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
-import 'package:docx_to_text/docx_to_text.dart';
-import 'package:flutter_pdf_text/flutter_pdf_text.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:xml/xml.dart';
+import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart' show Printing;
+import 'package:syncfusion_flutter_pdf/pdf.dart'
+    show PdfDocument, PdfTextExtractor;
+
+// استخراج نص PDF داخل Isolate لتجنب تجميد الواجهة.
+String _extractPdfTextSync(Uint8List bytes) {
+  final document = PdfDocument(inputBytes: bytes);
+
+  try {
+    return PdfTextExtractor(document).extractText();
+  } finally {
+    document.dispose();
+  }
+}
 
 class FileTextExtractor {
-  /// Extract text from a supported file.
-  ///
-  /// Supported formats:
-  /// PDF, DOCX, PPTX, TXT, and common image formats.
+  /// الصيغ المدعومة: PDF والصور فقط.
   static Future<String> extractText({
     required String path,
   }) async {
     final file = File(path);
 
     if (!await file.exists()) {
-      throw Exception('File not found.');
+      throw Exception('File not found: $path');
     }
 
     final extension = path.split('.').last.toLowerCase();
@@ -28,20 +37,9 @@ class FileTextExtractor {
       case 'pdf':
         return _readPdf(file);
 
-      case 'docx':
-        return _readDocx(file);
-
-      case 'pptx':
-        return _readPowerPoint(file);
-
-      case 'txt':
-        return _readTxt(file);
-
       case 'png':
       case 'jpg':
       case 'jpeg':
-      case 'bmp':
-      case 'webp':
         return _readImage(file);
 
       default:
@@ -51,88 +49,123 @@ class FileTextExtractor {
     }
   }
 
-  /// Read selectable text from a PDF file.
+  /// استخراج النص من PDF، ثم استخدام OCR إذا لم يوجد نص كافٍ.
   static Future<String> _readPdf(File file) async {
-    final pdf = await PDFDoc.fromFile(file);
-    return (await pdf.text).trim();
-  }
-
-  /// Read text from a Word DOCX file.
-  static Future<String> _readDocx(File file) async {
+    String extractedText = '';
     final bytes = await file.readAsBytes();
-    return docxToText(bytes).trim();
-  }
 
-  /// Read text from PowerPoint PPTX slides.
-  static Future<String> _readPowerPoint(File file) async {
-    final bytes = await file.readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
+    try {
+      extractedText = (await Isolate.run(
+        () => _extractPdfTextSync(bytes),
+      ).timeout(const Duration(seconds: 120))).trim();
+    } catch (_) {
+      // الانتقال إلى OCR إذا تعذر استخراج النص مباشرة.
+    }
 
-    final slideFiles = archive.where((entry) {
-      if (!entry.isFile) return false;
+    if (extractedText.length >= 30) {
+      return extractedText;
+    }
 
-      final name = entry.name;
-      return RegExp(
-        r'^ppt/slides/slide\d+\.xml$',
-      ).hasMatch(name);
-    }).toList();
+    final pageCount = await Isolate.run(() {
+      final document = PdfDocument(inputBytes: bytes);
 
-    // Keep slides in their correct numerical order.
-    slideFiles.sort((a, b) {
-      final aNumber = int.parse(
-        RegExp(r'slide(\d+)\.xml$')
-            .firstMatch(a.name)!
-            .group(1)!,
-      );
-
-      final bNumber = int.parse(
-        RegExp(r'slide(\d+)\.xml$')
-            .firstMatch(b.name)!
-            .group(1)!,
-      );
-
-      return aNumber.compareTo(bNumber);
+      try {
+        return document.pages.count;
+      } finally {
+        document.dispose();
+      }
     });
 
-    final result = <String>[];
+    if (pageCount > 40) {
+      throw Exception(
+        'This PDF has $pageCount pages - too long for OCR. '
+        'Use the page viewer instead.',
+      );
+    }
 
-    for (final slide in slideFiles) {
-      final xmlText = utf8.decode(slide.content);
-      final document = XmlDocument.parse(xmlText);
+    return _readPdfWithOcr(file);
+  }
 
-      final textNodes = document
-          .findAllElements('a:t')
-          .map((node) => node.innerText)
-          .toList();
+  /// تحويل صفحات PDF إلى صور والتعرف على النصوص باستخدام OCR.
+  static Future<String> _readPdfWithOcr(File file) async {
+    final bytes = await file.readAsBytes();
+    final tempDirectory = await getTemporaryDirectory();
 
-      if (textNodes.isNotEmpty) {
-        result.add(textNodes.join(' '));
+    final pageTexts = <String>[];
+    var pageNumber = 0;
+
+    await for (final raster in Printing.raster(bytes, dpi: 200)) {
+      pageNumber++;
+
+      final pngBytes = await raster.toPng();
+
+      final imageFile = File(
+        '${tempDirectory.path}/'
+        'quickstudy_ocr_'
+        '${DateTime.now().microsecondsSinceEpoch}_'
+        '$pageNumber.png',
+      );
+
+      try {
+        await imageFile.writeAsBytes(
+          pngBytes,
+          flush: true,
+        );
+
+        final recognizedText =
+            await FlutterTesseractOcr.extractText(
+          imageFile.path,
+          language: 'ara+eng',
+          args: {
+            'psm': '3',
+            'preserve_interword_spaces': '1',
+          },
+        );
+
+        if (recognizedText.trim().isNotEmpty) {
+          pageTexts.add(
+            '--- Page $pageNumber ---\n'
+            '${recognizedText.trim()}',
+          );
+        }
+      } finally {
+        try {
+          if (await imageFile.exists()) {
+            await imageFile.delete();
+          }
+        } catch (_) {
+          // تجاهل أخطاء حذف الملفات المؤقتة.
+        }
       }
     }
 
-    return result.join('\n\n').trim();
+    if (pageNumber == 0) {
+      throw Exception('The PDF contains no pages.');
+    }
+
+    final result = pageTexts.join('\n\n').trim();
+
+    if (result.isEmpty) {
+      throw Exception(
+        'OCR could not recognize text in this PDF. '
+        'Check the scan quality and Arabic language files.',
+      );
+    }
+
+    return result;
   }
 
-  /// Read a plain text file.
-  static Future<String> _readTxt(File file) async {
-    return (await file.readAsString(
-      encoding: utf8,
-    )).trim();
-  }
-
-  /// Extract text from an image using OCR.
+  /// التعرف على النصوص العربية والإنجليزية داخل الصور.
   static Future<String> _readImage(File file) async {
-    final inputImage = InputImage.fromFilePath(file.path);
-
-    final recognizer = TextRecognizer(
-      script: TextRecognitionScript.latin,
+    final text = await FlutterTesseractOcr.extractText(
+      file.path,
+      language: 'ara+eng',
+      args: {
+        'psm': '3',
+        'preserve_interword_spaces': '1',
+      },
     );
 
-    try {
-      final result = await recognizer.processImage(inputImage);
-      return result.text.trim();
-    } finally {
-      await recognizer.close();
-    }
+    return text.trim();
   }
 }
