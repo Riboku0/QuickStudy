@@ -1,282 +1,130 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
 
-import 'home_page.dart';
-import 'study_page.dart';
-import 'library_page.dart';
+import 'config/dependencies.dart';
+import 'data/repositories/settings/settings_repository.dart';
+import 'ui/core/themes/app_theme.dart';
+import 'ui/shell/app_shell.dart';
 
 void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  static const Color background = Color(0xFFF3EFE6);
-  static const Color dark = Color(0xFF202020);
-  static const Color yellow = Color(0xFFFFD84D);
-
-  int selectedIndex = 0;
-
-  final pages = const [
-    HomePage(),
-    StudyPage(),
-    LibraryPage(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: background,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: yellow,
-          brightness: Brightness.light,
-        ).copyWith(
-          primary: dark,
-          surface: background,
-        ),
-        splashFactory: InkRipple.splashFactory,
-      ),
-      home: Scaffold(
-        extendBody: true,
-        backgroundColor: background,
-        // IndexedStack يحافظ على حالة كل صفحة عند التنقل
-        body: IndexedStack(
-          index: selectedIndex,
-          children: pages,
-        ),
-        bottomNavigationBar: _FloatingNavBar(
-          index: selectedIndex,
-          onChanged: (index) => setState(() => selectedIndex = index),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-
-  const _NavItem(this.icon, this.activeIcon, this.label);
-}
-
-// شريط تنقل زجاجي شفاف بخانات متساوية:
-// اضغط على خانة، أو مرّر إصبعك يمينًا ويسارًا فيتبعك المؤشر وتتبدّل الصفحة
-class _FloatingNavBar extends StatefulWidget {
-  final int index;
-  final ValueChanged<int> onChanged;
-
-  const _FloatingNavBar({
-    required this.index,
-    required this.onChanged,
-  });
-
-  static const Color dark = Color(0xFF202020);
-  static const Color yellow = Color(0xFFFFD84D);
-
-  static const List<_NavItem> items = [
-    _NavItem(Icons.home_outlined, Icons.home_rounded, 'Home'),
-    _NavItem(Icons.school_outlined, Icons.school_rounded, 'Study'),
-    _NavItem(
-      Icons.library_books_outlined,
-      Icons.library_books_rounded,
-      'Library',
+  runApp(
+    MultiProvider(
+      providers: appProviders,
+      child: const QuickStudyApp(),
     ),
-  ];
-
-  @override
-  State<_FloatingNavBar> createState() => _FloatingNavBarState();
+  );
 }
 
-class _FloatingNavBarState extends State<_FloatingNavBar> {
-  static const double _height = 68;
-  static const double _pad = 6;
+// يطبّق إعدادات المظهر واللغة على كل التطبيق.
+class QuickStudyApp extends StatefulWidget {
+  const QuickStudyApp({super.key});
 
-  // موضع المؤشر أثناء السحب (كسري: 0 .. عدد العناصر-1)، وnull عند عدم السحب
-  double? _drag;
+  @override
+  State<QuickStudyApp> createState() => _QuickStudyAppState();
+}
 
-  int get _count => _FloatingNavBar.items.length;
+class _QuickStudyAppState extends State<QuickStudyApp>
+    with WidgetsBindingObserver {
+  late final SettingsRepository _settings;
 
-  double _posFor(double x, double width) {
-    final cell = (width - _pad * 2) / _count;
-    return ((x - _pad) / cell - 0.5).clamp(0.0, _count - 1.0).toDouble();
+  ThemeData? _theme;
+  Brightness? _builtFor;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = context.read<SettingsRepository>();
+    _settings.addListener(_onSettingsChanged);
+    WidgetsBinding.instance.addObserver(this);
   }
 
-  void _follow(double x, double width) {
-    final pos = _posFor(x, width);
-    final target = pos.round();
+  @override
+  void dispose() {
+    _settings.removeListener(_onSettingsChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
-    setState(() => _drag = pos);
+  // تغيّر وضع الهاتف (فاتح/داكن) أثناء فتح التطبيق
+  @override
+  void didChangePlatformBrightness() => _onSettingsChanged();
 
-    // تبديل الصفحة مباشرة عند عبور المؤشر إلى خانة جديدة
-    if (target != widget.index) {
-      HapticFeedback.selectionClick();
-      widget.onChanged(target);
+  void _onSettingsChanged() {
+    if (!mounted) return;
+    setState(() {});
+    // بعض الويدجت ثابتة (const) ولا تعيد البناء وحدها،
+    // فنعلّم كل الشجرة لإعادة البناء بعد تغيير الألوان أو اللغة.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _rebuildAll(context);
+    });
+  }
+
+  static void _rebuildAll(BuildContext context) {
+    void mark(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(mark);
     }
+
+    (context as Element).visitChildren(mark);
   }
 
-  void _endDrag() {
-    if (_drag != null) setState(() => _drag = null);
+  Brightness _brightness() {
+    return switch (_settings.theme) {
+      AppThemeChoice.light => Brightness.light,
+      AppThemeChoice.dark => Brightness.dark,
+      AppThemeChoice.system =>
+        WidgetsBinding.instance.platformDispatcher.platformBrightness,
+    };
+  }
+
+  Locale? _locale() {
+    return switch (_settings.language) {
+      AppLanguageChoice.english => const Locale('en'),
+      AppLanguageChoice.arabic => const Locale('ar'),
+      AppLanguageChoice.system => null, // لغة الهاتف
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final cell = (width - _pad * 2) / _count;
-            final dragging = _drag != null;
-            final pos = _drag ?? widget.index.toDouble();
+    // لا نعرض شيئًا حتى تُقرأ الإعدادات (جزء من الثانية)،
+    // حتى لا يظهر الوضع الفاتح لحظة ثم يتحول للداكن
+    if (!_settings.isLoaded) {
+      final dark = WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+          Brightness.dark;
+      return ColoredBox(
+        color: dark ? AppPalette.dark.background : AppPalette.light.background,
+      );
+    }
 
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapUp: (details) {
-                final target = _posFor(details.localPosition.dx, width).round();
+    final brightness = _brightness();
+    if (_theme == null || _builtFor != brightness) {
+      AppColors.use(
+        brightness == Brightness.dark ? AppPalette.dark : AppPalette.light,
+      );
+      _theme = AppTheme.build();
+      _builtFor = brightness;
+    }
 
-                if (target != widget.index) {
-                  HapticFeedback.selectionClick();
-                  widget.onChanged(target);
-                }
-              },
-              onHorizontalDragStart: (d) => _follow(d.localPosition.dx, width),
-              onHorizontalDragUpdate: (d) => _follow(d.localPosition.dx, width),
-              onHorizontalDragEnd: (_) => _endDrag(),
-              onHorizontalDragCancel: _endDrag,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(_height / 2),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: Container(
-                    height: _height,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(_height / 2),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        width: 1.2,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1A000000),
-                          blurRadius: 24,
-                          offset: Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        // المؤشر المنزلق
-                        AnimatedPositioned(
-                          duration: dragging
-                              ? Duration.zero
-                              : const Duration(milliseconds: 280),
-                          curve: Curves.easeOutCubic,
-                          left: _pad + pos * cell,
-                          top: _pad,
-                          width: cell,
-                          height: _height - _pad * 2,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: _FloatingNavBar.yellow
-                                  .withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(
-                                (_height - _pad * 2) / 2,
-                              ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x40FFD84D),
-                                  blurRadius: 14,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        // الخانات المتساوية
-                        Padding(
-                          padding: const EdgeInsets.all(_pad),
-                          child: Row(
-                            children: [
-                              for (var i = 0; i < _count; i++)
-                                Expanded(
-                                  child: _NavCell(
-                                    item: _FloatingNavBar.items[i],
-                                    // قرب المؤشر من هذه الخانة (0..1)
-                                    closeness:
-                                        (1 - (pos - i).abs()).clamp(0.0, 1.0),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _NavCell extends StatelessWidget {
-  final _NavItem item;
-  final double closeness;
-
-  const _NavCell({
-    required this.item,
-    required this.closeness,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Color.lerp(
-      const Color(0xFF6B6B6B),
-      _FloatingNavBar.dark,
-      closeness,
-    )!;
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Transform.scale(
-          scale: 1 + 0.12 * closeness,
-          child: Icon(
-            closeness > 0.5 ? item.activeIcon : item.icon,
-            size: 24,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          item.label,
-          style: TextStyle(
-            fontSize: 10.5,
-            fontWeight: closeness > 0.5 ? FontWeight.w800 : FontWeight.w600,
-            color: color,
-          ),
-        ),
+    return MaterialApp(
+      title: 'QuickStudy',
+      debugShowCheckedModeBanner: false,
+      theme: _theme,
+      themeMode: ThemeMode.light, // الثيم نفسه يتبدل أعلاه
+      locale: _locale(),
+      supportedLocales: const [Locale('en'), Locale('ar')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
       ],
+      // لغة الهاتف إن كانت عربية، وإلا الإنجليزية
+      localeResolutionCallback: (device, supported) {
+        if (device?.languageCode == 'ar') return const Locale('ar');
+        return const Locale('en');
+      },
+      home: const AppShell(),
     );
   }
 }

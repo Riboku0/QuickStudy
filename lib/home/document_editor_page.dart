@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../services/file_text_extractor.dart';
+import '../theme/app_theme.dart';
 
 class DocumentEditorPage extends StatefulWidget {
   final int fileId;
@@ -26,11 +27,12 @@ class DocumentEditorPage extends StatefulWidget {
 }
 
 class _DocumentEditorPageState extends State<DocumentEditorPage> {
-  static const Color background = Color(0xFFF3EFE6);
-  static const Color dark = Color(0xFF202020);
-  static const Color yellow = Color(0xFFFFD84D);
-  static const Color green = Color(0xFF218838);
-  static const Color red = Color(0xFFC62828);
+  // الألوان من lib/theme/app_theme.dart
+  static const Color background = AppColors.background;
+  static const Color dark = AppColors.ink;
+  static const Color yellow = AppColors.accent;
+  static const Color green = AppColors.correct;
+  static const Color red = AppColors.wrong;
 
   final TextEditingController _controller = TextEditingController();
 

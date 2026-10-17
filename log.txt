@@ -1,0 +1,102 @@
+Launching lib\main.dart on moto g75 5G in debug mode...
+Running Gradle task 'assembleDebug'...                          
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/C:/Users/alamo/.gradle/wrapper/dists/gradle-9.3.1-all/9ot9r568e8zfvvd4mn8rbu1j0/gradle-9.3.1/lib/native-platform-0.22-milestone-29.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+Running Gradle task 'assembleDebug'...                             77.8s
+ظêأ Built build\app\outputs\flutter-apk\app-debug.apk
+Installing build\app\outputs\flutter-apk\app-debug.apk...       
+D/FlutterJNI(16127): Beginning load of flutter...
+D/FlutterJNI(16127): flutter (null) was loaded normally!
+I/flutter (16127): [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+D/FlutterRenderer(16127): Width is zero. 0,0
+D/FlutterRenderer(16127): Width is zero. 0,0
+D/FlutterJNI(16127): Sending viewport metrics to the engine.
+Installing build\app\outputs\flutter-apk\app-debug.apk...           9.2s
+I/FlutterActivityAndFragmentDelegate(17016): If you are attempting to set --enable-dart-profiling via Intent extras to launch a Flutter component outside of using the Flutter CLI, note that support for setting engine flags on Android via Intent will soon be dropped; see https://github.com/flutter/flutter/issues/180686 for more information on this breaking change. To migrate, set --enable-dart-profiling or any other flags specified via Intent extras on the command line instead or see https://github.com/flutter/flutter/blob/main/docs/engine/Flutter-Android-Engine-Flags.md for alternative methods.
+D/FlutterJNI(17016): Beginning load of flutter...
+D/FlutterJNI(17016): flutter (null) was loaded normally!
+I/flutter (17016): [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+D/FlutterRenderer(17016): Width is zero. 0,0
+Syncing files to device moto g75 5G...                             445ms
+
+Flutter run key commands.
+r Hot reload. 
+R Hot restart.
+h List all available interactive commands.
+d Detach (terminate "flutter run" but leave application running).
+c Clear the screen
+q Quit (terminate the application on the device).
+
+A Dart VM Service on moto g75 5G is available at: http://127.0.0.1:49673/l7LccJ8IfxU=/
+The Flutter DevTools debugger and profiler on moto g75 5G is available at: http://127.0.0.1:49673/l7LccJ8IfxU=/devtools/?uri=ws://127.0.0.1:49673/l7LccJ8IfxU=/ws
+
+I/Choreographer(17016): Skipped 709 frames!  The application may be doing too much work on its main thread.
+I/WindowExtensionsImpl(17016): Initializing Window Extensions, vendor API level=9, activity embedding enabled=true
+D/FlutterRenderer(17016): Width is zero. 0,0
+D/FlutterJNI(17016): Sending viewport metrics to the engine.
+I/example.project(17016): Compiler allocated 5493KB to compile void android.view.ViewRootImpl.performTraversals()
+I/Choreographer(17016): Skipped 38 frames!  The application may be doing too much work on its main thread.
+D/WindowLayoutComponentImpl(17016): Register WindowLayoutInfoListener on Context=com.example.project.MainActivity@c4a4e0e, of which baseContext=android.app.ContextImpl@835f66c
+I/Choreographer(17016): Skipped 36 frames!  The application may be doing too much work on its main thread.
+I/HWUI    (17016): Davey! duration=836ms; Flags=1, FrameTimelineVsyncId=258239442, IntendedVsync=310412780176008, Vsync=310413582020532, InputEventId=0, HandleInputStart=310413589847731, AnimationStart=310413589849971, PerformTraversalsStart=310413589851221, DrawStart=310413592586116, FrameDeadline=310412793842674, FrameStartTime=310413589410856, FrameInterval=22273459, WorkloadTarget=13666666, SyncQueued=310413597133668, SyncStart=310413597226325, IssueDrawCommandsStart=310413597551481, SwapBuffers=310413616293616, FrameCompleted=310413617136898, DequeueBufferDuration=4310208, QueueBufferDuration=306979, GpuCompleted=310413617136898, SwapBuffersCompleted=310413616675127, DisplayPresentTime=0, CommandSubmissionCompleted=310413616293616, 
+D/FlutterJNI(17016): Sending viewport metrics to the engine.
+D/InsetsController(17016): hide(ime(), fromIme=false)
+I/ImeTracker(17016): com.example.project:bd92305b: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+W/example.project(17016): Unable to open libdolphin.so: dlopen failed: library "libdolphin.so" not found.
+D/ProfileInstaller(17016): Installing profile for com.example.project
+D/InsetsController(17016): hide(ime(), fromIme=false)
+I/ImeTracker(17016): com.example.project:217fa825: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+D/VRI[MainActivity](17016): visibilityChanged oldVisibility=true newVisibility=false
+D/Surface (17016): Surface::disconnect
+D/BufferQueueProducer(17016): [78d4c09 SurfaceView[com.example.project/com.example.project.MainActivity](BLAST)#118644(BLAST Consumer)pid:17016](id:427800000001,api:1,p:17016,c:17016) disconnect: api 1
+D/Surface (17016): Surface::disconnect
+D/BufferQueueProducer(17016): [78d4c09 SurfaceView[com.example.project/com.example.project.MainActivity](BLAST)#118644(BLAST Consumer)pid:17016](id:427800000001,api:0,p:-1,c:17016) disconnect: api -1
+D/Surface (17016): Surface::disconnect
+D/BufferQueueProducer(17016): [com.example.project/com.example.project.MainActivity#118639(BLAST Consumer)pid:17016](id:427800000000,api:1,p:17016,c:17016) disconnect: api 1
+D/InsetsController(17016): hide(ime(), fromIme=false)
+I/ImeTracker(17016): com.example.project:6618e0d4: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+D/nativeloader(17016): Load libpdfclient.so using APEX ns com_android_mediaprovider for caller /apex/com.android.mediaprovider/javalib/framework-pdf.jar: ok
+D/pdf_document_jni(17016): Creating FPDF_DOCUMENT from fd: 221
+W/example.project(17016): JNI critical lock held for 17.980ms on Thread[16,tid=31988,Runnable,Thread*=0xb400007ac6c11000,peer=0x222c280,"Thread-5"]
+D/pdf_document_jni(17016): Deleting Document: 0xb400007ac720dec0
+D/pdf_document_jni(17016): Destroyed Document: 0xb400007ac720dec0
+W/example.project(17016): Suspending all threads took: 10.502ms
+I/example.project(17016): Background concurrent mark compact GC freed 96KB AllocSpace bytes, 0(0B) LOS objects, 52% free, 85MB/181MB, paused 10.713ms,1.529ms total 33.666ms
+D/pdf_document_jni(17016): Creating FPDF_DOCUMENT from fd: 228
+W/example.project(17016): JNI critical lock held for 16.209ms on Thread[16,tid=32246,Runnable,Thread*=0xb400007ac6c11000,peer=0x2167c60,"Thread-6"]
+D/pdf_document_jni(17016): Deleting Document: 0xb400007ac720dec0
+D/pdf_document_jni(17016): Destroyed Document: 0xb400007ac720dec0
+D/pdf_document_jni(17016): Creating FPDF_DOCUMENT from fd: 221
+W/example.project(17016): JNI critical lock held for 21.176ms on Thread[16,tid=32498,Runnable,Thread*=0xb400007ac6c11000,peer=0x2169ad0,"Thread-7"]
+D/pdf_document_jni(17016): Deleting Document: 0xb400007ac720eb00
+D/pdf_document_jni(17016): Destroyed Document: 0xb400007ac720eb00
+W/example.project(17016): Suspending all threads took: 11.522ms
+I/example.project(17016): Background concurrent mark compact GC freed 167KB AllocSpace bytes, 10(164MB) LOS objects, 52% free, 85MB/181MB, paused 11.746ms,1.683ms total 92.335ms
+D/pdf_document_jni(17016): Creating FPDF_DOCUMENT from fd: 217
+W/example.project(17016): JNI critical lock held for 20.306ms on Thread[16,tid=323,Runnable,Thread*=0xb400007ac6c11000,peer=0x2160a08,"Thread-8"]
+D/pdf_document_jni(17016): Deleting Document: 0xb400007ac720eb00
+D/pdf_document_jni(17016): Destroyed Document: 0xb400007ac720eb00
+W/WindowOnBackDispatcher(17016): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@5125d0
+W/WindowOnBackDispatcher(17016): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@5125d0
+W/WindowOnBackDispatcher(17016): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@5125d0
+D/VRI[MainActivity](17016): visibilityChanged oldVisibility=true newVisibility=false
+D/Surface (17016): Surface::disconnect
+D/BufferQueueProducer(17016): [78d4c09 SurfaceView[com.example.project/com.example.project.MainActivity](BLAST)#118759(BLAST Consumer)pid:17016](id:427800000003,api:1,p:17016,c:17016) disconnect: api 1
+D/Surface (17016): Surface::disconnect
+D/BufferQueueProducer(17016): [78d4c09 SurfaceView[com.example.project/com.example.project.MainActivity](BLAST)#118759(BLAST Consumer)pid:17016](id:427800000003,api:0,p:-1,c:17016) disconnect: api -1
+D/Surface (17016): Surface::disconnect
+D/BufferQueueProducer(17016): [com.example.project/com.example.project.MainActivity#118754(BLAST Consumer)pid:17016](id:427800000002,api:1,p:17016,c:17016) disconnect: api 1
+D/ViewRootImpl(17016): Skipping stats log for color mode
+D/InsetsController(17016): hide(ime(), fromIme=false)
+I/ImeTracker(17016): com.example.project:51d26715: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+D/Surface (17016): Surface::disconnect
+D/BufferQueueProducer(17016): [78d4c09 SurfaceView[com.example.project/com.example.project.MainActivity](BLAST)#118849(BLAST Consumer)pid:17016](id:427800000005,api:1,p:17016,c:17016) disconnect: api 1
+D/Surface (17016): Surface::disconnect
+D/BufferQueueProducer(17016): [78d4c09 SurfaceView[com.example.project/com.example.project.MainActivity](BLAST)#118849(BLAST Consumer)pid:17016](id:427800000005,api:0,p:-1,c:17016) disconnect: api -1
+D/Surface (17016): Surface::disconnect
+D/BufferQueueProducer(17016): [com.example.project/com.example.project.MainActivity#118844(BLAST Consumer)pid:17016](id:427800000004,api:1,p:17016,c:17016) disconnect: api 1
+W/WindowOnBackDispatcher(17016): sendCancelIfRunning: isInProgress=false callback=android.app.Activity$$ExternalSyntheticLambda0@324cae5
+Lost connection to device.

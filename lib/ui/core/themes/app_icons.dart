@@ -1,0 +1,76 @@
+import 'package:hugeicons/hugeicons.dart';
+
+// نوع بيانات أيقونات Hugeicons (مسارات SVG)
+typedef AppIconData = List<List<dynamic>>;
+
+// ---------------------------------------------------------------------------
+// كل أيقونات التطبيق من مكان واحد (Hugeicons · Stroke Rounded)
+// كل الأسماء هنا مُتحقق منها في hugeicons 1.2.0
+// تُعرض بالويدجت AppIcon (في ui/core/ui/app_icon.dart)
+// ---------------------------------------------------------------------------
+
+abstract final class AppIcons {
+  // التنقل
+  static const AppIconData home = HugeIcons.strokeRoundedHome01;
+  static const AppIconData study = HugeIcons.strokeRoundedMortarboard02;
+  static const AppIconData libraryTab = HugeIcons.strokeRoundedBooks01;
+
+  // الملفات
+  static const AppIconData upload = HugeIcons.strokeRoundedCloudUpload;
+  static const AppIconData add = HugeIcons.strokeRoundedAdd01;
+  static const AppIconData pdf = HugeIcons.strokeRoundedPdf01;
+  static const AppIconData image = HugeIcons.strokeRoundedImage01;
+  static const AppIconData file = HugeIcons.strokeRoundedDocumentAttachment;
+  static const AppIconData folder = HugeIcons.strokeRoundedFolder01;
+  static const AppIconData archive = HugeIcons.strokeRoundedArchive02;
+  static const AppIconData trash = HugeIcons.strokeRoundedDelete02;
+  static const AppIconData bookmark = HugeIcons.strokeRoundedBookmark01;
+  static const AppIconData bookmarkSaved = HugeIcons.strokeRoundedBookmarkCheck01;
+  static const AppIconData pen = HugeIcons.strokeRoundedPencilEdit02;
+  static const AppIconData calendar = HugeIcons.strokeRoundedCalendar03;
+
+  // البحث والقوائم
+  static const AppIconData search = HugeIcons.strokeRoundedSearch01;
+  static const AppIconData close = HugeIcons.strokeRoundedCancel01;
+  static const AppIconData sort = HugeIcons.strokeRoundedArrowDataTransferVertical;
+  static const AppIconData more = HugeIcons.strokeRoundedMoreVertical;
+  static const AppIconData edit = HugeIcons.strokeRoundedEdit02;
+  static const AppIconData dragHandle = HugeIcons.strokeRoundedDragDropVertical;
+  static const AppIconData remove = HugeIcons.strokeRoundedRemove01;
+  static const AppIconData chat = HugeIcons.strokeRoundedBubbleChat;
+  static const AppIconData folderAdd = HugeIcons.strokeRoundedFolderAdd;
+  static const AppIconData chevron = HugeIcons.strokeRoundedArrowRight01;
+
+  // المذاكرة
+  static const AppIconData cards = HugeIcons.strokeRoundedCards01;
+  static const AppIconData quiz = HugeIcons.strokeRoundedCheckList;
+  static const AppIconData deck = HugeIcons.strokeRoundedLayers01;
+  static const AppIconData book = HugeIcons.strokeRoundedBookOpen01;
+  static const AppIconData brain = HugeIcons.strokeRoundedBrain02;
+  static const AppIconData next = HugeIcons.strokeRoundedArrowRight02;
+  static const AppIconData previous = HugeIcons.strokeRoundedArrowLeft02;
+  static const AppIconData replay = HugeIcons.strokeRoundedArrowReloadHorizontal;
+  static const AppIconData tap = HugeIcons.strokeRoundedCursorPointer01;
+  static const AppIconData idea = HugeIcons.strokeRoundedBulb;
+  static const AppIconData trophy = HugeIcons.strokeRoundedChampion;
+  static const AppIconData award = HugeIcons.strokeRoundedAward01;
+  static const AppIconData check = HugeIcons.strokeRoundedTick02;
+  static const AppIconData correct = HugeIcons.strokeRoundedCheckmarkCircle02;
+  static const AppIconData wrong = HugeIcons.strokeRoundedCancelCircle;
+
+  // عام
+  static const AppIconData info = HugeIcons.strokeRoundedInformationCircle;
+  static const AppIconData sparkle = HugeIcons.strokeRoundedAiSparkles;
+  static const AppIconData error = HugeIcons.strokeRoundedAlertCircle;
+  static const AppIconData dashboard = HugeIcons.strokeRoundedDashboardSquare02;
+
+  // الإعدادات
+  static const AppIconData settings = HugeIcons.strokeRoundedSettings02;
+  static const AppIconData sun = HugeIcons.strokeRoundedSun03;
+  static const AppIconData moon = HugeIcons.strokeRoundedMoon02;
+  static const AppIconData phone = HugeIcons.strokeRoundedSmartPhone01;
+  static const AppIconData language = HugeIcons.strokeRoundedTranslate;
+
+  // أيقونات اتجاهية: تنعكس تلقائيًا في العربية (من اليمين لليسار)
+  static final Set<AppIconData> directional = {chevron, next, previous};
+}

@@ -1,9 +1,12 @@
-
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 class AppDatabase {
   static Database? _database;
+
+  // يزيد بعد كل إضافة أو حذف، حتى تُحدِّث Home وLibrary نفسيهما تلقائيًا
+  static final ValueNotifier<int> changes = ValueNotifier<int>(0);
 
   // فتح قاعدة البيانات أو إنشاؤها
   static Future<Database> get database async {
@@ -44,7 +47,7 @@ class AppDatabase {
   }) async {
     final db = await database;
 
-    return await db.insert(
+    final id = await db.insert(
       'lectures',
       {
         'name': name,
@@ -53,11 +56,13 @@ class AppDatabase {
         'dateAdded': dateAdded,
       },
     );
+
+    changes.value++;
+    return id;
   }
 
   // استرجاع جميع المحاضرات
-  static Future<List<Map<String, dynamic>>>
-      getLectures() async {
+  static Future<List<Map<String, dynamic>>> getLectures() async {
     final db = await database;
 
     return await db.query(
@@ -70,10 +75,13 @@ class AppDatabase {
   static Future<int> deleteLecture(int id) async {
     final db = await database;
 
-    return await db.delete(
+    final count = await db.delete(
       'lectures',
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    changes.value++;
+    return count;
   }
 }

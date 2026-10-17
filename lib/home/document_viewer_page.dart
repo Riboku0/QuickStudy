@@ -2,14 +2,19 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart' show Printing;
-import 'package:syncfusion_flutter_pdf/pdf.dart' show PdfDocument;
+import 'package:share_plus/share_plus.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' show PdfBitmap, PdfDocument;
+
+import '../theme/app_theme.dart';
 
 // ---------------------------------------------------------------------------
 // معلومات المستند (PDF أو صورة)
@@ -356,6 +361,157 @@ Offset _rotate(Offset v, double a) {
 }
 
 // ---------------------------------------------------------------------------
+// التصدير: دمج الملاحظات في الملف (حفظ / مشاركة)
+// ---------------------------------------------------------------------------
+
+class _ExportResult {
+  final Uint8List bytes;
+  final String name;
+  final String mime;
+
+  const _ExportResult(this.bytes, this.name, this.mime);
+}
+
+// يرسم الملاحظات بنفس منطق _NoteView (الأبعاد بالبكسل: pw × ph)
+void _paintNotes(Canvas canvas, double pw, double ph, List<_Note> notes) {
+  for (final note in notes) {
+    if (note.text.trim().isEmpty) continue;
+
+    final fontSize = note.size * pw;
+    final pad = fontSize * 0.15;
+    final bw = note.w * pw;
+    final bh = _noteH(note, pw, ph) * ph;
+    final innerW = math.max(1.0, bw - pad * 2);
+
+    final painter = TextPainter(
+      text: TextSpan(text: note.text, style: _noteTextStyle(note, fontSize)),
+      textDirection: _isRtl(note.text) ? TextDirection.rtl : TextDirection.ltr,
+      textAlign: _alignOf(note),
+      textScaler: TextScaler.noScaling,
+    )..layout(minWidth: innerW, maxWidth: innerW);
+
+    final center = Offset(note.x * pw + bw / 2, note.y * ph + bh / 2);
+    final rect = Rect.fromLTWH(0, 0, bw, bh);
+    final opacity = note.opacity.clamp(0.0, 1.0).toDouble();
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(note.rot);
+    canvas.translate(-bw / 2, -bh / 2);
+
+    if (opacity < 1) {
+      canvas.saveLayer(
+        rect.inflate(2),
+        Paint()..color = Colors.black.withValues(alpha: opacity),
+      );
+    }
+
+    canvas.clipRect(rect);
+
+    if (note.bg != null) {
+      canvas.drawRect(rect, Paint()..color = Color(note.bg!));
+    }
+
+    painter.paint(canvas, Offset(pad, pad));
+
+    if (opacity < 1) canvas.restore();
+    canvas.restore();
+
+    painter.dispose();
+  }
+}
+
+Future<Uint8List> _picturePng(
+  ui.Picture picture,
+  int width,
+  int height,
+) async {
+  final image = await picture.toImage(width, height);
+  final data = await image.toByteData(format: ui.ImageByteFormat.png);
+
+  image.dispose();
+  picture.dispose();
+
+  return data!.buffer.asUint8List();
+}
+
+// طبقة شفافة تحتوي الملاحظات فقط
+Future<Uint8List> _renderOverlay(
+  List<_Note> notes,
+  double pw,
+  double ph,
+) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, pw, ph));
+
+  _paintNotes(canvas, pw, ph, notes);
+
+  return _picturePng(recorder.endRecording(), pw.round(), ph.round());
+}
+
+Future<Uint8List> _exportPdf(
+  Uint8List bytes,
+  Map<int, List<_Note>> notes,
+  double ratio, // نسبة العرض المستخدمة في العارض (ارتفاع / عرض)
+) async {
+  final document = PdfDocument(inputBytes: bytes);
+
+  try {
+    for (final entry in notes.entries) {
+      if (entry.key < 0 || entry.key >= document.pages.count) continue;
+      if (entry.value.every((n) => n.text.trim().isEmpty)) continue;
+
+      final page = document.pages[entry.key];
+      final size = page.size;
+
+      // نفس BoxFit.contain المستخدم في العارض
+      final tileW = math.min(size.width, size.height / ratio);
+      final tileH = tileW * ratio;
+      final left = (size.width - tileW) / 2;
+      final top = (size.height - tileH) / 2;
+
+      final pw = math.min(tileW * 3, 2400.0);
+      final ph = pw * ratio;
+
+      final png = await _renderOverlay(entry.value, pw, ph);
+
+      page.graphics.drawImage(
+        PdfBitmap(png),
+        Rect.fromLTWH(left, top, tileW, tileH),
+      );
+    }
+
+    final saved = await document.save();
+    return Uint8List.fromList(saved);
+  } finally {
+    document.dispose();
+  }
+}
+
+Future<Uint8List> _exportImage(Uint8List bytes, List<_Note> notes) async {
+  final codec = await ui.instantiateImageCodec(bytes);
+  final frame = await codec.getNextFrame();
+  final image = frame.image;
+
+  final w = image.width.toDouble();
+  final h = image.height.toDouble();
+
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, w, h));
+
+  canvas.drawImage(
+      image, Offset.zero, Paint()..filterQuality = FilterQuality.high);
+  _paintNotes(canvas, w, h, notes);
+
+  final png = await _picturePng(recorder.endRecording(), w.round(), h.round());
+
+  image.dispose();
+  codec.dispose();
+
+  return png;
+}
+
+// ---------------------------------------------------------------------------
 // نافذة النص
 // ---------------------------------------------------------------------------
 
@@ -554,11 +710,12 @@ class DocumentViewerPage extends StatefulWidget {
 
 class _DocumentViewerPageState extends State<DocumentViewerPage>
     with SingleTickerProviderStateMixin {
-  static const Color background = Color(0xFFF3EFE6);
-  static const Color dark = Color(0xFF202020);
-  static const Color red = Color(0xFFC62828);
-  static const Color accent = Color(0xFF1A73E8);
-  static const Color pillColor = Color(0xFF7FF0DF);
+  // الألوان من lib/theme/app_theme.dart
+  static const Color background = AppColors.background;
+  static const Color dark = AppColors.ink;
+  static const Color red = AppColors.wrong;
+  static const Color accent = AppColors.info;
+  static const Color pillColor = AppColors.accent;
 
   static const double _hPad = 12;
   static const double _gap = 12;
@@ -592,6 +749,9 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   final Map<int, List<_Note>> _notes = {};
   bool _editMode = false;
   String? _selectedId;
+
+  // حالة التصدير (حفظ / مشاركة)
+  bool _exporting = false;
 
   // آخر إعدادات استخدمتها (تُطبَّق على النصوص الجديدة)
   int _defColor = 0xFF202020;
@@ -1036,6 +1196,111 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
     });
   }
 
+  // ------------------------- الحفظ والمشاركة -------------------------
+
+  void _showInfo(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: dark,
+          content: Text(message, style: const TextStyle(color: Colors.white)),
+        ),
+      );
+  }
+
+  Future<_ExportResult> _buildExport() async {
+    final original = await File(widget.filePath).readAsBytes();
+
+    final allNotes = _notes.values
+        .expand((list) => list)
+        .where((n) => n.text.trim().isNotEmpty)
+        .toList();
+
+    final base = p.basenameWithoutExtension(widget.fileName);
+    final ext = p.extension(widget.filePath).toLowerCase(); // مع النقطة
+
+    // لا توجد ملاحظات: نسخة طبق الأصل
+    if (allNotes.isEmpty) {
+      final mime = _isPdf
+          ? 'application/pdf'
+          : (ext == '.png' ? 'image/png' : 'image/jpeg');
+
+      return _ExportResult(original, '$base$ext', mime);
+    }
+
+    // التأكد من تحميل خطوط Google قبل الرسم
+    try {
+      for (final n in allNotes) {
+        _noteTextStyle(n, 12);
+      }
+      await GoogleFonts.pendingFonts();
+    } catch (_) {}
+
+    if (_isPdf) {
+      final bytes = await _exportPdf(original, _notes, _aspectRatio);
+      return _ExportResult(bytes, '${base}_notes.pdf', 'application/pdf');
+    }
+
+    final bytes = await _exportImage(original, allNotes);
+    return _ExportResult(bytes, '${base}_notes.png', 'image/png');
+  }
+
+  Future<void> _withExport(
+      Future<void> Function(_ExportResult r) action) async {
+    if (_exporting) return;
+
+    setState(() {
+      _exporting = true;
+      _selectedId = null;
+    });
+
+    try {
+      final result = await _buildExport();
+      await action(result);
+    } catch (e) {
+      _showMessage('Export failed: $e');
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+  Future<void> _saveCopy() {
+    return _withExport((r) async {
+      // file_picker 11+ : الدوال أصبحت static (لا يوجد FilePicker.platform)
+      final path = await FilePicker.saveFile(
+        dialogTitle: 'Save a copy',
+        fileName: r.name,
+        bytes: r.bytes,
+      );
+
+      if (path == null) return; // أُلغي
+
+      _showInfo('Saved successfully');
+    });
+  }
+  Future<void> _shareCopy() {
+    // الحصول على المقاس قبل أي await (مطلوب لنافذة المشاركة على iPad)
+    final screen = MediaQuery.of(context).size;
+    final origin = Rect.fromLTWH(screen.width - 56, 0, 56, 56);
+
+    return _withExport((r) async {
+      final dir = await getTemporaryDirectory();
+      final file = File(p.join(dir.path, r.name));
+      await file.writeAsBytes(r.bytes, flush: true);
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: r.mime, name: r.name)],
+          subject: widget.fileName,
+          sharePositionOrigin: origin,
+        ),
+      );
+    });
+  }
+
   // ------------------------- الأبعاد -------------------------
 
   double get _pageWidth => (_viewWidth - _hPad * 2) * _zoom;
@@ -1235,6 +1500,34 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
                 _editMode ? Icons.check_circle : Icons.edit_outlined,
               ),
             ),
+            PopupMenuButton<String>(
+              tooltip: 'Save / Share',
+              enabled: !_exporting,
+              icon: const Icon(Icons.ios_share),
+              onSelected: (value) => value == 'save' ? _saveCopy() : _shareCopy(),
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'save',
+                  child: Row(
+                    children: [
+                      Icon(Icons.save_alt, size: 20),
+                      SizedBox(width: 12),
+                      Text('Save a copy'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'share',
+                  child: Row(
+                    children: [
+                      Icon(Icons.share_outlined, size: 20),
+                      SizedBox(width: 12),
+                      Text('Share'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ],
       ),
@@ -1314,6 +1607,15 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
                   ],
                 ),
               ),
+              if (_exporting)
+                const Positioned.fill(
+                  child: AbsorbPointer(
+                    child: ColoredBox(
+                      color: Color(0x66000000),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -2036,8 +2338,8 @@ class _PageTileState extends State<_PageTile> {
                             editMode: widget.editMode,
                             onTap: () => widget.onTapNote(note),
                             onScaleStart: () => widget.onScaleStartNote(note),
-                            onScaleUpdate: (details) => widget
-                                .onScaleUpdateNote(note, details, w, h),
+                            onScaleUpdate: (details) =>
+                                widget.onScaleUpdateNote(note, details, w, h),
                             onScaleEnd: widget.onScaleEndNote,
                           ),
                         ),

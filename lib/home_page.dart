@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -7,8 +6,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'database/app_database.dart';
-import 'home/document_editor_page.dart';
 import 'home/document_viewer_page.dart';
+import 'theme/app_theme.dart';
+import 'widgets/app_widgets.dart';
 
 class _SavedFile {
   final int id;
@@ -24,11 +24,13 @@ class _SavedFile {
     required this.type,
     required this.size,
   });
+
+  bool get isPdf => type.toLowerCase() == 'pdf';
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
-
+  const HomePage({super.key, this.onOpenTab});
+   final ValueChanged<int>? onOpenTab;
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -36,41 +38,24 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   static const List<String> allowedExtensions = ['pdf', 'png', 'jpg', 'jpeg'];
 
-  static const Color background = Color(0xFFF3EFE6);
-  static const Color dark = Color(0xFF202020);
-  static const Color yellow = Color(0xFFFFD84D);
-  static const Color successGreen = Color(0xFF218838);
-  static const Color errorRed = Color(0xFFC62828);
-
-  static const List<BoxShadow> softShadow = [
-    BoxShadow(color: Color(0x12000000), blurRadius: 22, offset: Offset(0, 8)),
-  ];
-
   final List<_SavedFile> savedFiles = [];
-
-  static const List<Map<String, String>> lectures = [
-    {
-      'title': 'Biology 101 - Cell Respiration',
-      'subject': 'Biology',
-      'details': '12 study cards  •  5 questions',
-    },
-    {
-      'title': 'Organic Chemistry - Reaction Mechanisms',
-      'subject': 'Chemistry',
-      'details': '20 study cards  •  8 questions',
-    },
-    {
-      'title': 'Introduction to Microeconomics',
-      'subject': 'Economics',
-      'details': '15 study cards  •  6 questions',
-    },
-  ];
+  bool _uploading = false;
 
   @override
   void initState() {
     super.initState();
+    // تحديث تلقائي عند الحذف أو الإضافة من صفحة أخرى (مثل Library)
+    AppDatabase.changes.addListener(loadSavedFiles);
     loadSavedFiles();
   }
+
+  @override
+  void dispose() {
+    AppDatabase.changes.removeListener(loadSavedFiles);
+    super.dispose();
+  }
+
+  // ------------------------- البيانات -------------------------
 
   Future<void> loadSavedFiles() async {
     try {
@@ -106,43 +91,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void showMessage(String message, {Color color = dark, IconData? icon}) {
+  void showMessage(String message, {MessageTone tone = MessageTone.neutral}) {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: color,
-          // فوق شريط التنقل العائم
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          content: Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, color: Colors.white, size: 21),
-                const SizedBox(width: 10),
-              ],
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    showAppMessage(context, message, tone: tone);
   }
 
   Future<void> pickFiles() async {
+    if (_uploading) return;
+
     try {
       final List<PlatformFile> files = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -150,6 +106,8 @@ class _HomePageState extends State<HomePage> {
       );
 
       if (!mounted || files.isEmpty) return;
+
+      setState(() => _uploading = true);
 
       final appDirectory = await getApplicationDocumentsDirectory();
 
@@ -209,72 +167,53 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
 
       final skippedNote = skipped > 0
-          ? ' ($skipped skipped: duplicate or unsupported)'
+          ? ' $skipped skipped (already added or not supported).'
           : '';
 
       if (added > 0) {
         showMessage(
           added == 1
-              ? 'File added successfully!$skippedNote'
-              : '$added files added successfully!$skippedNote',
-          color: successGreen,
-          icon: Icons.check_circle_outline,
+              ? 'File added.$skippedNote'
+              : '$added files added.$skippedNote',
+          tone: MessageTone.success,
         );
       } else {
-        showMessage(
-          'No new files were added.$skippedNote',
-          color: const Color(0xFF6D6250),
-          icon: Icons.info_outline,
-        );
+        showMessage('No new files added.$skippedNote');
       }
     } catch (e) {
       debugPrint('File saving error: $e');
 
       showMessage(
-        'Could not save files. Please try again.',
-        color: errorRed,
-        icon: Icons.error_outline,
+        'The files were not saved. Try again.',
+        tone: MessageTone.error,
       );
+    } finally {
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
-  // فتح صفحة تحرير المستند
-Future<void> openEditor(_SavedFile file) async {
-  final viewAsImages =
-      ['pdf', 'png', 'jpg', 'jpeg'].contains(
-    file.type.toLowerCase(),
-  );
+  // فتح الملف في العارض
+  Future<void> openFile(_SavedFile file) async {
+    if (!allowedExtensions.contains(file.type.toLowerCase())) {
+      showMessage('This file type cannot be opened.', tone: MessageTone.error);
+      return;
+    }
 
-  if (!viewAsImages) {
-    showMessage(
-      'This file type is no longer supported.',
-      color: errorRed,
-      icon: Icons.error_outline,
-    );
-    return;
-  }
-
-  try {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DocumentViewerPage(
-          fileId: file.id,
-          fileName: file.name,
-          filePath: file.path,
-          fileType: file.type,
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DocumentViewerPage(
+            fileId: file.id,
+            fileName: file.name,
+            filePath: file.path,
+            fileType: file.type,
+          ),
         ),
-      ),
-    );
-  } catch (e) {
-    if (!mounted) return;
-
-    showMessage(
-      'Could not open document: $e',
-      color: errorRed,
-      icon: Icons.error_outline,
-    );
+      );
+    } catch (e) {
+      showMessage('The file did not open: $e', tone: MessageTone.error);
+    }
   }
-}
 
   // حذف النص المعدّل المرتبط بالملف، حتى لا يظهر لملف جديد يأخذ نفس المعرّف
   Future<void> _deleteEditedText(int fileId) async {
@@ -292,6 +231,8 @@ Future<void> openEditor(_SavedFile file) async {
   }
 
   Future<void> removeFile(_SavedFile file) async {
+    if (!await confirmDeleteFile(context, file.name)) return;
+
     try {
       await AppDatabase.deleteLecture(file.id);
       await _deleteEditedText(file.id);
@@ -311,46 +252,11 @@ Future<void> openEditor(_SavedFile file) async {
         savedFiles.removeWhere((item) => item.id == file.id);
       });
 
-      showMessage(
-        'File deleted successfully.',
-        color: successGreen,
-        icon: Icons.check_circle_outline,
-      );
+      showMessage('File deleted.', tone: MessageTone.success);
     } catch (e) {
       debugPrint('File deletion error: $e');
-
-      showMessage(
-        'Could not delete the file.',
-        color: errorRed,
-        icon: Icons.error_outline,
-      );
-    }
-  }
-
-  IconData _iconFor(String type) {
-    switch (type.toLowerCase()) {
-      case 'pdf':
-        return Icons.picture_as_pdf_rounded;
-      case 'png':
-      case 'jpg':
-      case 'jpeg':
-        return Icons.image_rounded;
-      default:
-        return Icons.description_rounded;
-    }
-  }
-
-  _TypeStyle _styleFor(String type) {
-    switch (type.toLowerCase()) {
-      case 'pdf':
-        return const _TypeStyle(Color(0xFFFDE4E1), Color(0xFFC62828));
-  
-      case 'png':
-      case 'jpg':
-      case 'jpeg':
-        return const _TypeStyle(Color(0xFFDDEBFF), Color(0xFF1565C0));
-      default:
-        return const _TypeStyle(Color(0xFFE3E8FF), Color(0xFF3949AB));
+      showMessage('The file was not deleted. Try again.',
+          tone: MessageTone.error);
     }
   }
 
@@ -362,319 +268,133 @@ Future<void> openEditor(_SavedFile file) async {
     return '${(bytes / 1024).toStringAsFixed(1)} KB';
   }
 
+  // ------------------------- الواجهة -------------------------
+
   @override
   Widget build(BuildContext context) {
-    var step = 0;
+    final insets = MediaQuery.paddingOf(context);
 
-    return Scaffold(
-      backgroundColor: background,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          children: [
-            _FadeIn(
-              index: step++,
-              child: const Padding(
-                padding: EdgeInsets.only(top: 4, bottom: 20),
-                child: Text(
-                  'HOME',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5,
-                    color: dark,
-                  ),
-                ),
-              ),
-            ),
-
-            // Upload card
-            _FadeIn(
-              index: step++,
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.white, Color(0xFFFFF6CF)],
-                  ),
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: softShadow,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'SYNTHESIZE NEW MATERIAL',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: yellow,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x55FFD84D),
-                                blurRadius: 14,
-                                offset: Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(Icons.auto_awesome, size: 20),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    const Text(
-                      'Turn your lecture files into summaries, '
-                      'flashcards and practice questions.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.55,
-                        color: Colors.black54,
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final label in const [
-  'PDF',
-  'PNG',
-  'JPG',
-  'JPEG',
-])
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              label,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: pickFiles,
-                        icon: const Icon(Icons.upload_file_rounded),
-                        label: const Text(
-                          'UPLOAD NEW FILES',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: dark,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 28),
-
-            _FadeIn(
-              index: step++,
-              child: _SectionHeader(
-                title: 'YOUR UPLOADED FILES',
+    return ListView(
+      // insets.bottom يشمل شريط التنقل العائم
+      padding: EdgeInsets.fromLTRB(20, insets.top + 20, 20, insets.bottom + 24),
+      children: [
+        ConstrainedContent(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const PageTitle('Home'),
+              const SizedBox(height: 24),
+              _UploadCard(uploading: _uploading, onUpload: pickFiles),
+              const SizedBox(height: 32),
+              SectionHeader(
+                'Your files',
                 trailing: savedFiles.isEmpty ? null : '${savedFiles.length}',
               ),
-            ),
-
-            const SizedBox(height: 14),
-
-            if (savedFiles.isEmpty)
-              _FadeIn(
-                index: step++,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 28,
-                    horizontal: 20,
+              const SizedBox(height: 12),
+              if (savedFiles.isEmpty)
+                const _EmptyFiles()
+              else
+                for (final file in savedFiles)
+                  Padding(
+                    key: ValueKey('file_${file.id}'),
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _FileTile(
+                      name: file.name,
+                      ext: file.type.toUpperCase(),
+                      sizeText: _formatSize(file.size),
+                      style: file.isPdf ? SubjectStyle.pdf : SubjectStyle.image,
+                      icon: file.isPdf
+                          ? Icons.picture_as_pdf_rounded
+                          : Icons.image_rounded,
+                      onOpen: () => openFile(file),
+                      onDelete: () => removeFile(file),
+                    ),
                   ),
+              const SizedBox(height: 20),
+              const InfoNote(
+                'Summaries, flashcards and quizzes made from your files are '
+                'coming next. Until then, try the sample decks in Study.',
+                icon: Icons.auto_awesome_outlined,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// بطاقة الرفع (البطاقة الداكنة الرئيسية في Home)
+// ---------------------------------------------------------------------------
+
+class _UploadCard extends StatelessWidget {
+  const _UploadCard({required this.uploading, required this.onUpload});
+
+  final bool uploading;
+  final VoidCallback onUpload;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: t.ink,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: AppTokens.heroShadow,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: Colors.black12),
+                    color: t.surface.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(t.radiusSmall),
                   ),
-                  child: const Column(
-                    children: [
-                      Icon(
-                        Icons.folder_open_rounded,
-                        size: 36,
-                        color: Colors.black38,
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        'No files uploaded yet.',
-                        style: TextStyle(fontSize: 13, color: Colors.black54),
-                      ),
-                    ],
+                  child: Icon(
+                    Icons.upload_file_rounded,
+                    color: t.accent,
+                    size: 24,
                   ),
                 ),
-              ),
-
-            // Saved files
-            for (final file in savedFiles)
-              _FadeIn(
-                key: ValueKey('file_${file.id}'),
-                index: step++,
-                child: _FileTile(
-                  name: file.name,
-                  ext: file.type.toUpperCase(),
-                  sizeText: _formatSize(file.size),
-                  icon: _iconFor(file.type),
-                  style: _styleFor(file.type),
-                  onOpen: () => openEditor(file),
-                  onDelete: () => removeFile(file),
-                ),
-              ),
-
-            const SizedBox(height: 18),
-
-            _FadeIn(
-              index: step++,
-              child: const _SectionHeader(title: 'YOUR STUDY STATISTICS'),
+                const Spacer(),
+                for (final format in const ['PDF', 'PNG', 'JPG'])
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 6),
+                    child: AppPill(
+                      format,
+                      background: t.surface.withValues(alpha: 0.1),
+                      foreground: t.surface.withValues(alpha: 0.8),
+                    ),
+                  ),
+              ],
             ),
-
-            const SizedBox(height: 14),
-
-            _FadeIn(
-              index: step++,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.folder_copy_rounded,
-                      iconBg: const Color(0xFFFFF1B8),
-                      iconFg: const Color(0xFF8A6D00),
-                      number: savedFiles.length.toString().padLeft(2, '0'),
-                      label: 'FILES',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: _StatCard(
-                      icon: Icons.style_rounded,
-                      iconBg: Color(0xFFDDEBFF),
-                      iconFg: Color(0xFF1565C0),
-                      number: '48',
-                      label: 'CARDS',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: _StatCard(
-                      icon: Icons.schedule_rounded,
-                      iconBg: Color(0xFFDDF3E2),
-                      iconFg: Color(0xFF2E7D32),
-                      number: '10',
-                      label: 'HOURS',
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 20),
+            Text(
+              'Add lecture files',
+              style: AppText.title.copyWith(color: t.surface),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Upload PDFs or photos of your notes to read, annotate and '
+              'study them in one place.',
+              style: AppText.body.copyWith(
+                color: t.surface.withValues(alpha: 0.7),
               ),
             ),
-
-            const SizedBox(height: 30),
-
-            _FadeIn(
-              index: step++,
-              child: _SectionHeader(
-                title: 'ANALYSIS ARCHIVES',
-                trailing: '${lectures.length} ITEMS',
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            for (final lecture in lectures)
-              _FadeIn(
-                index: step++,
-                child: _LectureCard(
-                  title: lecture['title']!,
-                  subject: lecture['subject']!,
-                  details: lecture['details']!,
-                  onOpen: () {
-                    showMessage('Opening ${lecture['title']}');
-                  },
-                ),
-              ),
-
-            const SizedBox(height: 4),
-
-            _FadeIn(
-              index: step++,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDCE5FF),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.info_outline_rounded,
-                        size: 20,
-                        color: Color(0xFF3949AB),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Your study materials will appear here '
-                        'after they are processed.',
-                        style: TextStyle(fontSize: 12.5, height: 1.45),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 20),
+            AppButton(
+              label: uploading ? 'Adding files…' : 'Upload files',
+              icon: Icons.add_rounded,
+              kind: AppButtonKind.accent,
+              onPressed: uploading ? null : onUpload,
             ),
           ],
         ),
@@ -683,88 +403,37 @@ Future<void> openEditor(_SavedFile file) async {
   }
 }
 
-// ---------------------------------------------------------------------------
-// عناصر مساعدة
-// ---------------------------------------------------------------------------
-
-class _TypeStyle {
-  final Color bg;
-  final Color fg;
-
-  const _TypeStyle(this.bg, this.fg);
-}
-
-// ظهور تدريجي مع انزلاق خفيف
-class _FadeIn extends StatelessWidget {
-  final int index;
-  final Widget child;
-
-  const _FadeIn({super.key, required this.index, required this.child});
+class _EmptyFiles extends StatelessWidget {
+  const _EmptyFiles();
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 380 + math.min(index, 8) * 70),
-      curve: Curves.easeOutCubic,
-      child: child,
-      builder: (context, value, child) => Opacity(
-        opacity: value,
-        child: Transform.translate(
-          offset: Offset(0, (1 - value) * 18),
-          child: child,
-        ),
+    final t = AppTokens.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      decoration: BoxDecoration(
+        color: t.surface.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(t.radiusMedium),
+        border: Border.all(color: t.ink.withValues(alpha: 0.08)),
       ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String? trailing;
-
-  const _SectionHeader({required this.title, this.trailing});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 4,
-          height: 16,
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFD84D),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.9,
-            ),
-          ),
-        ),
-        if (trailing != null)
+      child: Column(
+        children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              trailing!,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-              ),
-            ),
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(color: t.chip, shape: BoxShape.circle),
+            child: Icon(Icons.folder_open_rounded, color: t.muted, size: 26),
           ),
-      ],
+          const SizedBox(height: 12),
+          const Text('No files yet', style: AppText.headline),
+          const SizedBox(height: 4),
+          Text(
+            'Files you upload show up here.',
+            style: AppText.caption.copyWith(color: t.muted),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -774,7 +443,7 @@ class _FileTile extends StatelessWidget {
   final String ext;
   final String sizeText;
   final IconData icon;
-  final _TypeStyle style;
+  final SubjectStyle style;
   final VoidCallback onOpen;
   final VoidCallback onDelete;
 
@@ -790,344 +459,67 @@ class _FileTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: _HomePageState.softShadow,
-        ),
-        child: Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onOpen,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: style.bg,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(icon, color: style.fg, size: 26),
-                  ),
+    final t = AppTokens.of(context);
 
-                  const SizedBox(width: 14),
-
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            height: 1.3,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: style.bg,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                ext,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: style.fg,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              sizeText,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(width: 6),
-
-                  _RoundIconButton(
-                    icon: Icons.edit_outlined,
-                    tooltip: 'Edit document',
-                    bg: const Color(0xFFF1EEE6),
-                    fg: const Color(0xFF202020),
-                    onTap: onOpen,
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  _RoundIconButton(
-                    icon: Icons.delete_outline_rounded,
-                    tooltip: 'Remove file',
-                    bg: const Color(0xFFFDE4E1),
-                    fg: const Color(0xFFC62828),
-                    onTap: onDelete,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final Color bg;
-  final Color fg;
-  final VoidCallback onTap;
-
-  const _RoundIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.bg,
-    required this.fg,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: bg,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: Icon(icon, size: 20, color: fg),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconBg;
-  final Color iconFg;
-  final String number;
-  final String label;
-
-  const _StatCard({
-    required this.icon,
-    required this.iconBg,
-    required this.iconFg,
-    required this.number,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: _HomePageState.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SoftCard(
+      onTap: onOpen,
+      radius: t.radiusMedium,
+      padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+      child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(12),
+              color: style.background,
+              borderRadius: BorderRadius.circular(t.radiusSmall),
             ),
-            child: Icon(icon, size: 19, color: iconFg),
+            child: Icon(icon, color: style.foreground, size: 24),
           ),
-          const SizedBox(height: 14),
-          Text(
-            number,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-              color: Colors.black54,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LectureCard extends StatelessWidget {
-  final String title;
-  final String subject;
-  final String details;
-  final VoidCallback onOpen;
-
-  const _LectureCard({
-    required this.title,
-    required this.subject,
-    required this.details,
-    required this.onOpen,
-  });
-
-  // لون مختلف لكل مادة
-  _TypeStyle get _subjectStyle {
-    switch (subject.toLowerCase()) {
-      case 'biology':
-        return const _TypeStyle(Color(0xFFDDF3E2), Color(0xFF2E7D32));
-      case 'chemistry':
-        return const _TypeStyle(Color(0xFFEBDDF8), Color(0xFF6A1B9A));
-      case 'economics':
-        return const _TypeStyle(Color(0xFFFFE9D0), Color(0xFFE65100));
-      default:
-        return const _TypeStyle(Color(0xFFFFE98A), Color(0xFF202020));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final style = _subjectStyle;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: _HomePageState.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: style.bg,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: style.fg,
-                    shape: BoxShape.circle,
+                SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textDirection: textDirectionFor(name),
+                    style: AppText.body.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
-                const SizedBox(width: 7),
-                Text(
-                  subject.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                    color: style.fg,
-                  ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    AppPill(
+                      ext,
+                      background: style.background,
+                      foreground: style.foreground,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      sizeText,
+                      style: AppText.caption.copyWith(
+                        color: t.muted,
+                        fontFeatures: AppText.tabular,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: 14),
-
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              height: 1.25,
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          Row(
-            children: [
-              const Icon(Icons.style_outlined, size: 15, color: Colors.black45),
-              const SizedBox(width: 6),
-              Text(
-                details,
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: onOpen,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF202020),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'OPEN LECTURE',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward_rounded, size: 16),
-                ],
-              ),
-            ),
+          const SizedBox(width: 8),
+          RoundIconButton(
+            icon: Icons.delete_outline_rounded,
+            tooltip: 'Delete file',
+            size: 44,
+            background: t.wrongSoft,
+            foreground: t.wrong,
+            onPressed: onDelete,
           ),
         ],
       ),
