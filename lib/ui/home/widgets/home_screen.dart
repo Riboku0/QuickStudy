@@ -1,21 +1,18 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../domain/models/bookmark.dart';
 import '../../../domain/models/lecture.dart';
 import '../../../domain/models/reading_progress.dart';
 import '../../../routing/app_navigator.dart';
-import '../../../utils/command.dart';
 import '../../../utils/result.dart';
 import '../../core/ui/core_ui.dart';
+import '../../shell/profile_menu.dart';
 import '../view_models/home_view_model.dart';
 
-// تبويب المكتبة: قراءة ملفات PDF
-// الترحيب + زرا الإضافة والإعدادات ← خط فاصل ← تابع القراءة ←
-// رفوف الكتب (أغلفة حقيقية) ← العلامات المرجعية.
-// زر الإضافة يقبل PDF فقط، والصور تُرفع من الرئيسية (LibraryScreen).
+// تبويب المكتبة: قراءة ملفات PDF (مقتبس من مرجع المستخدم، بنفس ثيم المذاكرة البنفسجي)
+// الترحيب والعنوان + البحث وقائمة الحساب ← بطاقة آخر ما قرأت (تقليب بالسحب) ←
+// "كتبك" + إضافة كتاب ← تبويبات التصنيف ← شبكة الكتب (غلاف، عنوان، تصنيف، ⋯).
+// علامات كل كتاب تظهر من قائمة ⋯ الخاصة به.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
@@ -33,48 +30,20 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   HomeViewModel get vm => widget.viewModel;
 
-  // مقاسات الرفوف: أقل عرض للغلاف، والمسافة بين الكتب
-  static const double _minCoverWidth = 92;
-  static const double _bookGap = 14;
-  static const double _maxContentWidth = 640;
-
   @override
   void initState() {
     super.initState();
     vm.delete.addListener(_onDeleteResult);
-    vm.importPdfs.addListener(_onImportResult);
   }
 
   @override
   void dispose() {
     vm.delete.removeListener(_onDeleteResult);
-    vm.importPdfs.removeListener(_onImportResult);
     super.dispose();
   }
 
-  void _onImportResult() {
-    final result = vm.importPdfs.result;
-    if (result == null || !mounted) return;
-    vm.importPdfs.clearResult();
-    final s = AppStrings.of(context);
-
-    switch (result) {
-      case Ok(:final value):
-        if (value.cancelled) return;
-        final skipped = value.skipped > 0 ? s.skipped(value.skipped) : '';
-        if (value.added > 0) {
-          showAppMessage(
-            context,
-            '${s.filesAdded(value.added)}$skipped',
-            tone: MessageTone.success,
-          );
-        } else {
-          showAppMessage(context, '${s.noNewFiles}$skipped');
-        }
-      case Err():
-        showAppMessage(context, s.filesNotSaved, tone: MessageTone.error);
-    }
-  }
+  // نموذج إضافة كتاب (الملف + الاسم + التصنيف)
+  void _addBook() => AppNavigator.openAddBook(context, category: vm.category);
 
   void _onDeleteResult() {
     final result = vm.delete.result;
@@ -98,264 +67,322 @@ class _HomeScreenState extends State<HomeScreen> {
   void _open(Lecture lecture, {int? page}) =>
       AppNavigator.openDocument(context, lecture, page: page);
 
+  Future<void> _bookMenu(Lecture lecture) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: StudyTone.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => ListenableBuilder(
+        listenable: vm,
+        builder: (context, _) {
+          // الكتاب بآخر حالته (التصنيف يتغير والقائمة مفتوحة)
+          final current = vm.pdfs.firstWhere(
+            (l) => l.id == lecture.id,
+            orElse: () => lecture,
+          );
+          return _BookSheet(
+            lecture: current,
+            bookmarks: vm.bookmarksFor(current),
+            categories: vm.allCategories,
+            onCategory: (c) => vm.setBookCategory.execute((current, c)),
+            onOpenBookmark: (b) {
+              Navigator.of(sheetContext).pop();
+              _open(current, page: b.page);
+            },
+            onRemoveBookmark: vm.removeBookmark,
+            onDelete: () {
+              Navigator.of(sheetContext).pop();
+              _confirmDelete(current);
+            },
+          );
+        },
+      ),
+    );
+  }
+
   String _greeting(AppStrings s) => switch (vm.dayPart) {
-        DayPart.morning => s.goodMorning,
-        DayPart.afternoon => s.goodAfternoon,
-        DayPart.evening => s.goodEvening,
-      };
+    DayPart.morning => s.goodMorning,
+    DayPart.afternoon => s.goodAfternoon,
+    DayPart.evening => s.goodEvening,
+  };
 
   @override
   Widget build(BuildContext context) {
     final insets = MediaQuery.paddingOf(context);
     final s = AppStrings.of(context);
-
-    // المحتوى لا يتجاوز 640 على الشاشات الكبيرة، وهامش جانبي 28
-    // (أوسع قليلًا حتى لا يجلس المحتوى على خطوط الإطار المزخرف)
     final width = MediaQuery.sizeOf(context).width;
-    final side = math.max(28.0, (width - _maxContentWidth) / 2 + 28);
-    final hPad = EdgeInsets.symmetric(horizontal: side);
+    // كتابان في السطر على الهاتف (مساحة وأزرار أوسع)، وأكثر على الشاشات العريضة
+    final columns = (width / 200).floor().clamp(2, 5);
 
-    // عدد الكتب في الرف حسب العرض المتاح (لا حسب نوع الجهاز)
-    final contentWidth = width - side * 2;
-    final perShelf = math.max(
-      3,
-      ((contentWidth + _bookGap) / (_minCoverWidth + _bookGap)).floor(),
-    );
-    final coverWidth = (contentWidth - _bookGap * (perShelf - 1)) / perShelf;
+    return RepaintBoundary(
+      child: ColoredBox(
+        color: StudyTone.background,
+        child: ListenableBuilder(
+          listenable: vm,
+          builder: (context, _) {
+            final pdfs = vm.pdfs;
+            final recent = vm.recent;
+            final books = vm.visible;
 
-    return Stack(
-      children: [
-        // خلفية ثابتة بإطار مزخرف (نهاري / ليلي) لا تتحرك مع التمرير
-        const Positioned.fill(child: _LibraryBackground()),
-        ListenableBuilder(
-      listenable: vm,
-      builder: (context, _) {
-        final pdfs = vm.pdfs;
-        final current = vm.current;
-        final bookmarks = vm.bookmarks;
-        final shelves = (pdfs.length / perShelf).ceil();
-
-        return CustomScrollView(
-          slivers: [
-            // الترحيب + الأزرار + خط فاصل
-            SliverPadding(
-              padding: hPad.copyWith(top: insets.top + 18),
-              sliver: SliverToBoxAdapter(
-                child: _LibraryHeader(
-                  greeting: _greeting(s),
-                  importing: vm.importPdfs,
-                  onAdd: vm.importPdfs.execute,
-                ),
-              ),
-            ),
-            if (!vm.isLoaded)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (current == null)
-              SliverPadding(
-                padding: hPad.copyWith(top: 28),
-                sliver: SliverToBoxAdapter(
-                  child: ListenableBuilder(
-                    listenable: vm.importPdfs,
-                    builder: (context, _) => _NoPdfs(
-                      busy: vm.importPdfs.running,
-                      onAdd: vm.importPdfs.execute,
+            return CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(20, insets.top + 18, 20, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: ConstrainedContent(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _Header(
+                            greeting: _greeting(s),
+                            dayPart: vm.dayPart,
+                          ),
+                          if (!vm.isLoaded)
+                            const Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          else if (pdfs.isEmpty) ...[
+                            const SizedBox(height: 24),
+                            _NoBooks(
+                              busy: false,
+                              onAdd: _addBook,
+                            ),
+                          ] else ...[
+                            if (recent.isNotEmpty) ...[
+                              const SizedBox(height: 22),
+                              _RecentCarousel(
+                                books: recent,
+                                progressFor: vm.progressFor,
+                                onOpen: _open,
+                              ),
+                            ],
+                            const SizedBox(height: 26),
+                            _SectionTitle(
+                              count: pdfs.length,
+                              busy: false,
+                              onAdd: _addBook,
+                            ),
+                            const SizedBox(height: 14),
+                            _CategoryTabs(
+                              categories: vm.allCategories,
+                              selected: vm.category,
+                              onSelect: vm.setCategory,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              )
-            else ...[
-              SliverPadding(
-                padding: hPad.copyWith(top: 24),
-                sliver: SliverToBoxAdapter(
-                  child: SectionHeader(s.continueReading),
-                ),
-              ),
-              SliverPadding(
-                padding: hPad.copyWith(top: 14),
-                sliver: SliverToBoxAdapter(
-                  child: _ContinueCard(
-                    lecture: current,
-                    progress: vm.progressFor(current),
-                    onOpen: () => _open(current),
-                  ),
-                ),
-              ),
-
-              // رفوف الكتب
-              SliverPadding(
-                padding: hPad.copyWith(top: 32),
-                sliver: SliverToBoxAdapter(
-                  child: SectionHeader(
-                    s.shelvesTitle,
-                    trailing: '${pdfs.length}',
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: hPad.copyWith(top: 18),
-                sliver: SliverList.builder(
-                  itemCount: shelves,
-                  itemBuilder: (context, row) {
-                    final start = row * perShelf;
-                    final books = pdfs.sublist(
-                      start,
-                      math.min(start + perShelf, pdfs.length),
-                    );
-                    return _Shelf(
-                      books: books,
-                      perShelf: perShelf,
-                      coverWidth: coverWidth,
-                      gap: _bookGap,
-                      progressFor: vm.progressFor,
-                      onOpen: _open,
-                      onDelete: _confirmDelete,
-                    );
-                  },
-                ),
-              ),
-
-              // العلامات المرجعية
-              SliverPadding(
-                padding: hPad.copyWith(top: 22),
-                sliver: SliverToBoxAdapter(
-                  child: SectionHeader(
-                    s.bookmarksTitle,
-                    trailing: bookmarks.isEmpty ? null : '${bookmarks.length}',
-                  ),
-                ),
-              ),
-              if (bookmarks.isEmpty)
-                SliverPadding(
-                  padding: hPad.copyWith(top: 14),
-                  sliver: const SliverToBoxAdapter(child: _NoBookmarks()),
-                )
-              else
-                SliverPadding(
-                  padding: hPad.copyWith(top: 6),
-                  sliver: SliverList.separated(
-                    itemCount: bookmarks.length,
-                    separatorBuilder: (_, _) =>
-                        Divider(height: 1, thickness: 1, color: _Tone.line),
-                    itemBuilder: (context, i) {
-                      final entry = bookmarks[i];
-                      return _BookmarkRow(
-                        key: ValueKey(entry.bookmark.id),
-                        entry: entry,
-                        onOpen: () => _open(
-                          entry.lecture,
-                          page: entry.bookmark.page,
+                if (vm.isLoaded && pdfs.isNotEmpty)
+                  if (books.isEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Text(
+                          s.noBooksInCategory,
+                          textAlign: TextAlign.center,
+                          style: AppText.body.copyWith(color: AppColors.muted),
                         ),
-                        onRemove: () => vm.removeBookmark(entry.bookmark),
-                      );
-                    },
-                  ),
-                ),
-              SliverToBoxAdapter(child: SizedBox(height: insets.bottom + 28)),
-            ],
-          ],
-        );
-      },
-    ),
-      ],
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        0,
+                        20,
+                        insets.bottom + 28,
+                      ),
+                      sliver: SliverGrid.builder(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 14,
+                          childAspectRatio: 0.56,
+                        ),
+                        itemCount: books.length,
+                        itemBuilder: (context, i) {
+                          final book = books[i];
+                          return _BookCard(
+                            lecture: book,
+                            progress: vm.progressFor(book),
+                            bookmarked: vm.hasBookmarks(book),
+                            onOpen: () => _open(book),
+                            onMenu: () => _bookMenu(book),
+                          );
+                        },
+                      ),
+                    ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// الرأس: "صباح الخير" كبير + "المكتبة" فوقه، الإعدادات والإضافة، ثم خط رفيع
+// الرأس: التحية بالبنفسجي + "المكتبة" + سطر قصير، والبحث وقائمة الحساب
 // ---------------------------------------------------------------------------
 
-class _LibraryHeader extends StatelessWidget {
-  const _LibraryHeader({
+class _Header extends StatelessWidget {
+  const _Header({
     required this.greeting,
-    required this.importing,
-    required this.onAdd,
+    required this.dayPart,
   });
 
   final String greeting;
-  final Command0<ImportSummary> importing;
-  final VoidCallback onAdd;
+  final DayPart dayPart;
 
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  // الترحيب صغير بالذهبي، و"المكتبة" كبيرة بخط أميري
+                  AppIcon(
+                    dayPart == DayPart.evening ? AppIcons.moon : AppIcons.sun,
+                    size: 18,
+                    color: StudyTone.purple,
+                  ),
+                  const SizedBox(width: 6),
                   Text(
                     greeting,
-                    style: AppText.tracked(context, AppText.label).copyWith(
-                      color: _Tone.gold,
-                    ),
+                    style: AppText.label.copyWith(color: StudyTone.purple),
                   ),
-                  const SizedBox(height: 2),
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      s.library,
-                      // خط نسخ كلاسيكي يناسب الكتب والإطار المزخرف
-                      // (يُحمَّل من الإنترنت أول مرة ثم يُخزَّن، وقبلها يظهر الخط العادي)
-                      style: GoogleFonts.getFont(
-                        'Amiri',
-                        textStyle: AppText.display.copyWith(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                        ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  AppIcon(
+                    AppIcons.libraryTab,
+                    size: 28,
+                    color: StudyTone.purple,
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        s.library,
+                        style: AppText.display.copyWith(fontSize: 30),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            CircleAction(
-              icon: AppIcons.settings,
-              tooltip: s.settings,
-              onPressed: () => AppNavigator.openSettings(context),
-            ),
-            const SizedBox(width: 10),
-            ListenableBuilder(
-              listenable: importing,
-              builder: (context, _) => CircleAction(
-                icon: AppIcons.add,
-                tooltip: s.addPdf,
-                dark: true,
-                // نهارًا: ذهبي من زخارف الخلفية بدل الأسود
-                color: AppColors.isDark ? null : _Tone.button,
-                iconColor: AppColors.isDark ? null : Colors.white,
-                onPressed: importing.running ? null : onAdd,
+              const SizedBox(height: 4),
+              Text(
+                s.librarySubtitle,
+                style: AppText.body.copyWith(color: AppColors.muted),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 18),
-        Divider(height: 1, thickness: 1, color: _Tone.line),
+        const SizedBox(width: 10),
+        const ProfileMenuButton(),
       ],
     );
   }
 }
 
-
 // ---------------------------------------------------------------------------
-// متابعة القراءة: معاينة + اسم + "صفحة 12 من 40" + شريط النسبة + زر
-// (العنصر الأصفر الوحيد في الصفحة)
+// بطاقة آخر ما قرأت: حتى 4 كتب تُقلَّب بالسحب، والنقاط تحتها
 // ---------------------------------------------------------------------------
 
-class _ContinueCard extends StatelessWidget {
-  const _ContinueCard({
+class _RecentCarousel extends StatefulWidget {
+  const _RecentCarousel({
+    required this.books,
+    required this.progressFor,
+    required this.onOpen,
+  });
+
+  final List<Lecture> books;
+  final ReadingProgress? Function(Lecture) progressFor;
+  final void Function(Lecture, {int? page}) onOpen;
+
+  @override
+  State<_RecentCarousel> createState() => _RecentCarouselState();
+}
+
+class _RecentCarouselState extends State<_RecentCarousel> {
+  final _pages = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = widget.books.length;
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 268,
+          child: PageView.builder(
+            controller: _pages,
+            itemCount: count,
+            onPageChanged: (i) => setState(() => _index = i),
+            itemBuilder: (context, i) {
+              final book = widget.books[i];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                child: _RecentCard(
+                  lecture: book,
+                  progress: widget.progressFor(book),
+                  onOpen: () => widget.onOpen(book),
+                ),
+              );
+            },
+          ),
+        ),
+        if (count > 1) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < count; i++)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == _index ? 18 : 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: i == _index
+                        ? StudyTone.purple
+                        : StudyTone.purple.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _RecentCard extends StatelessWidget {
+  const _RecentCard({
     required this.lecture,
     required this.progress,
     required this.onOpen,
@@ -364,9 +391,6 @@ class _ContinueCard extends StatelessWidget {
   final Lecture lecture;
   final ReadingProgress? progress;
   final VoidCallback onOpen;
-
-  static const double _coverW = 78;
-  static const double _coverH = 112;
 
   @override
   Widget build(BuildContext context) {
@@ -374,106 +398,109 @@ class _ContinueCard extends StatelessWidget {
     final p = progress;
     final started = p != null && p.pageCount > 0;
 
-    return SoftCard(
+    return StudyCard(
       onTap: onOpen,
-      padding: const EdgeInsets.all(14),
-      // شبه شفافة بإطار ذهبي رفيع: تظهر الخلفية من خلفها
-      color: _Tone.card,
-      border: BorderSide(color: _Tone.line),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      radius: 26,
+      padding: const EdgeInsets.all(16),
+      child: Row(
         children: [
+          // الغلاف فوق بقعة بنفسجية ناعمة
           SizedBox(
-            height: _coverH,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            width: 128,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                // الغلاف بظل خفيف كأنه كتاب واقف
-                DecoratedBox(
+                Container(
+                  width: 128,
+                  height: 170,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x22000000),
-                        blurRadius: 8,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
+                    color: StudyTone.purple.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(40),
                   ),
-                  child: RepaintBoundary(
-                    child: FileThumbnail(
-                      lecture: lecture,
-                      width: _coverW,
-                      height: _coverH,
-                      radius: 6,
-                      showBadge: false,
+                ),
+                Transform.rotate(
+                  angle: -0.05,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 14,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: RepaintBoundary(
+                      child: FileThumbnail(
+                        lecture: lecture,
+                        width: 108,
+                        height: 156,
+                        radius: 6,
+                        showBadge: false,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        started
-                            ? s.openedOn(formatDay(p.openedAt, s))
-                            : '${s.lastAdded} · ${formatDay(lecture.dateAdded, s)}',
-                        style: AppText.caption.copyWith(color: _Tone.gold),
-                      ),
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        width: double.infinity,
-                        child: Text(
-                          lecture.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textDirection: textDirectionFor(lecture.title),
-                          style: AppText.headline.copyWith(height: 1.35),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppPill(
+                  s.recentlyRead,
+                  background: StudyTone.purple.withValues(alpha: 0.12),
+                  foreground: StudyTone.purple,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  lecture.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textDirection: textDirectionFor(lecture.title),
+                  style: AppText.title.copyWith(height: 1.35),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '${started ? p.percent : 0}%',
+                  textDirection: TextDirection.ltr,
+                  style: AppText.label.copyWith(
+                    color: AppColors.ink,
+                    fontFeatures: AppText.tabular,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _PurpleBar(value: started ? p.fraction : 0),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    AppIcon(AppIcons.book, size: 15, color: AppColors.muted),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        started ? s.pageOf(p.page, p.pageCount) : s.notStarted,
+                        style: AppText.caption.copyWith(
+                          color: AppColors.muted,
+                          fontFeatures: AppText.tabular,
                         ),
                       ),
-                      const Spacer(),
-                      // الصفحة والنسبة في سطر واحد فوق شريط رفيع
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              started
-                                  ? s.pageOf(p.page, p.pageCount)
-                                  : s.notStarted,
-                              style: AppText.caption.copyWith(
-                                color: AppColors.muted,
-                                fontFeatures: AppText.tabular,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            '${started ? p.percent : 0}%',
-                            style: AppText.caption.copyWith(
-                              color: AppColors.ink,
-                              fontWeight: FontWeight.w700,
-                              fontFeatures: AppText.tabular,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ProgressTrack(value: started ? p.fraction : 0),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 44,
+                  child: StudyButton(
+                    label: started ? s.resumeReading : s.startReading,
+                    icon: AppIcons.next,
+                    onPressed: onOpen,
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // زر صغير بالأصفر الخفيف في طرف البطاقة
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: AppButton(
-              label: started ? s.resumeReading : s.startReading,
-              icon: AppIcons.book,
-              kind: AppButtonKind.accent,
-              onPressed: onOpen,
             ),
           ),
         ],
@@ -482,187 +509,31 @@ class _ContinueCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// رف واحد: أغلفة متجاورة واقفة على لوح رفيع، والعناوين تحت اللوح
-// ---------------------------------------------------------------------------
+// شريط تقدم بنفسجي رفيع
+class _PurpleBar extends StatelessWidget {
+  const _PurpleBar({required this.value});
 
-class _Shelf extends StatelessWidget {
-  const _Shelf({
-    required this.books,
-    required this.perShelf,
-    required this.coverWidth,
-    required this.gap,
-    required this.progressFor,
-    required this.onOpen,
-    required this.onDelete,
-  });
-
-  final List<Lecture> books;
-  final int perShelf;
-  final double coverWidth;
-  final double gap;
-  final ReadingProgress? Function(Lecture) progressFor;
-  final void Function(Lecture, {int? page}) onOpen;
-  final ValueChanged<Lecture> onDelete;
-
-  // نسبة غلاف الكتاب (أطول من عرضه)
-  static const double _coverRatio = 1.45;
+  final double value;
 
   @override
   Widget build(BuildContext context) {
-    final coverHeight = coverWidth * _coverRatio;
-
-    // خانات فارغة في آخر رف حتى تبقى الكتب بمقاسها
-    List<Widget> cells(Widget Function(Lecture book) build) => [
-          for (var i = 0; i < perShelf; i++) ...[
-            if (i > 0) SizedBox(width: gap),
-            SizedBox(
-              width: coverWidth,
-              child: i < books.length ? build(books[i]) : null,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: 6,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ColoredBox(
+                color: StudyTone.purple.withValues(alpha: 0.14),
+              ),
+            ),
+            FractionallySizedBox(
+              widthFactor: value.clamp(0.0, 1.0),
+              alignment: AlignmentDirectional.centerStart,
+              child: ColoredBox(color: StudyTone.purple),
             ),
           ],
-        ];
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 26),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // الأغلفة
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: cells(
-              (book) => _BookCover(
-                lecture: book,
-                width: coverWidth,
-                height: coverHeight,
-                progress: progressFor(book),
-                onOpen: () => onOpen(book),
-                onDelete: () => onDelete(book),
-              ),
-            ),
-          ),
-          // لوح الرف
-          Container(
-            height: 6,
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            decoration: BoxDecoration(
-              color: _Tone.gold.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(2),
-              border: Border(
-                bottom: BorderSide(color: _Tone.line),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // العناوين
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: cells(
-              (book) => Text(
-                book.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                textDirection: textDirectionFor(book.title),
-                style: AppText.caption.copyWith(
-                  color: AppColors.ink,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// غلاف كتاب: الصفحة الأولى الحقيقية + كعب رفيع + شريط تقدم أصفر في الأسفل
-class _BookCover extends StatelessWidget {
-  const _BookCover({
-    required this.lecture,
-    required this.width,
-    required this.height,
-    required this.progress,
-    required this.onOpen,
-    required this.onDelete,
-  });
-
-  final Lecture lecture;
-  final double width;
-  final double height;
-  final ReadingProgress? progress;
-  final VoidCallback onOpen;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = progress;
-    final fraction = p != null && p.pageCount > 0 ? p.fraction : 0.0;
-
-    return Semantics(
-      button: true,
-      label: lecture.title,
-      value: p == null ? null : '${p.percent}%',
-      child: GestureDetector(
-        onTap: onOpen,
-        onLongPress: onDelete,
-        child: Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadiusDirectional.horizontal(
-              start: Radius.circular(2),
-              end: Radius.circular(5),
-            ),
-            // ظل خفيف جدًا: الكتاب واقف على الرف
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 6,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: const BorderRadiusDirectional.horizontal(
-              start: Radius.circular(2),
-              end: Radius.circular(5),
-            ).resolve(Directionality.of(context)),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                FileThumbnail(
-                  lecture: lecture,
-                  width: width,
-                  height: height,
-                  radius: 0,
-                  showBadge: false,
-                ),
-                // كعب الكتاب
-                PositionedDirectional(
-                  start: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: 5,
-                  child: ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.14),
-                  ),
-                ),
-                // تقدم القراءة
-                if (fraction > 0)
-                  PositionedDirectional(
-                    start: 0,
-                    bottom: 0,
-                    height: 4,
-                    width: width * fraction.clamp(0.04, 1.0),
-                    child: const ColoredBox(color: AppColors.yellow),
-                  ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -670,116 +541,471 @@ class _BookCover extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// علامة مرجعية: غلاف صغير + اسم الكتاب + الصفحة + النص المحفوظ.
-// اضغط للانتقال للصفحة، واسحب للحذف.
+// "كتبك" + عدد الكتب + إضافة كتاب
 // ---------------------------------------------------------------------------
 
-class _BookmarkRow extends StatelessWidget {
-  const _BookmarkRow({
-    super.key,
-    required this.entry,
-    required this.onOpen,
-    required this.onRemove,
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({
+    required this.count,
+    required this.busy,
+    required this.onAdd,
   });
 
-  final BookmarkEntry entry;
-  final VoidCallback onOpen;
-  final VoidCallback onRemove;
+  final int count;
+  final bool busy;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    final b = entry.bookmark;
-    final text = b.text;
-    final isText = b.kind == BookmarkKind.text && (text ?? '').isNotEmpty;
-    final accent = b.color == null ? AppColors.yellow : Color(b.color!);
 
-    return Dismissible(
-      key: ValueKey('dismiss-${b.id}'),
-      onDismissed: (_) => onRemove(),
-      background: _SwipeBackground(alignment: AlignmentDirectional.centerStart),
-      secondaryBackground:
-          _SwipeBackground(alignment: AlignmentDirectional.centerEnd),
-      child: InkWell(
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              RepaintBoundary(
-                child: FileThumbnail(
-                  lecture: entry.lecture,
-                  width: 40,
-                  height: 56,
-                  radius: 3,
-                  showBadge: false,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: Text(
-                        entry.lecture.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textDirection: textDirectionFor(entry.lecture.title),
-                        style: AppText.headline.copyWith(fontSize: 14.5),
+    return Row(
+      children: [
+        AppIcon(AppIcons.libraryTab, size: 22, color: StudyTone.purple),
+        const SizedBox(width: 8),
+        Text(s.shelvesTitle, style: AppText.headline.copyWith(fontSize: 17)),
+        const SizedBox(width: 8),
+        Text(
+          '$count',
+          style: AppText.caption.copyWith(
+            color: AppColors.muted,
+            fontFeatures: AppText.tabular,
+          ),
+        ),
+        const Spacer(),
+        TextButton.icon(
+          onPressed: busy ? null : onAdd,
+          style: TextButton.styleFrom(
+            foregroundColor: StudyTone.purple,
+            minimumSize: const Size(44, 44),
+          ),
+          icon: busy
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: StudyTone.purple,
+                  ),
+                )
+              : AppIcon(AppIcons.add, size: 18, color: StudyTone.purple),
+          label: Text(
+            s.addPdf,
+            style: AppText.label.copyWith(color: StudyTone.purple),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// تبويبات التصنيف: الكل + التصنيفات (المختار بنفسجي)
+// ---------------------------------------------------------------------------
+
+// لون وأيقونة كل تصنيف (يُستخدمان في التبويبات والشارة على الكتاب)
+(Color, AppIconData) categoryStyle(String? key) => switch (key) {
+  'novel' => (const Color(0xFFCF5A93), AppIcons.book),
+  'study' => (const Color(0xFF4A72D9), AppIcons.study),
+  'philosophy' => (const Color(0xFF2A97A8), AppIcons.idea),
+  'works' => (const Color(0xFFD08A2E), AppIcons.file),
+  _ => (StudyTone.purple, AppIcons.dashboard),
+};
+
+class _CategoryTabs extends StatelessWidget {
+  const _CategoryTabs({
+    required this.categories,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<String> categories;
+
+  final String? selected;
+  final ValueChanged<String?> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final items = <(String?, String)>[
+      (null, s.allCategories),
+      for (final c in categories) (c, s.categoryPlural(c)),
+    ];
+
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final (key, label) = items[i];
+          final on = key == selected;
+          final icon = categoryStyle(key).$2;
+
+          return Semantics(
+            button: true,
+            selected: on,
+            child: Material(
+              color: on ? StudyTone.purple : StudyTone.card,
+              borderRadius: BorderRadius.circular(24),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onSelect(key),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      AppIcon(
+                        icon,
+                        size: 18,
+                        color: on ? StudyTone.onPurple : AppColors.muted,
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        AppIcon(
-                          AppIcons.bookmark,
-                          size: 14,
-                          color: AppColors.yellowDeep,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          s.pageNumber(b.page),
-                          style: AppText.caption.copyWith(
-                            color: AppColors.muted,
-                            fontFeatures: AppText.tabular,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (isText) ...[
-                      const SizedBox(height: 8),
-                      // النص المحفوظ مع خط بلون التحديد
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsetsDirectional.only(start: 10),
-                        decoration: BoxDecoration(
-                          border: BorderDirectional(
-                            start: BorderSide(color: accent, width: 3),
-                          ),
-                        ),
-                        child: Text(
-                          text!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textDirection: textDirectionFor(text),
-                          style: AppText.body.copyWith(
-                            fontSize: 13.5,
-                            color: AppColors.ink,
-                            height: 1.45,
-                          ),
+                      const SizedBox(width: 8),
+                      Text(
+                        label,
+                        style: AppText.label.copyWith(
+                          color: on ? StudyTone.onPurple : AppColors.ink,
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: AppIcon(AppIcons.chevron, size: 18, color: AppColors.muted),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// بطاقة كتاب في الشبكة: الغلاف (+ علامة إن كان له علامات + تقدم)،
+// العنوان، شارة التصنيف، و⋯ لقائمة الكتاب
+// ---------------------------------------------------------------------------
+
+class _BookCard extends StatelessWidget {
+  const _BookCard({
+    required this.lecture,
+    required this.progress,
+    required this.bookmarked,
+    required this.onOpen,
+    required this.onMenu,
+  });
+
+  final Lecture lecture;
+  final ReadingProgress? progress;
+  final bool bookmarked;
+  final VoidCallback onOpen;
+  final VoidCallback onMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final p = progress;
+    final fraction = p != null && p.pageCount > 0 ? p.fraction : 0.0;
+    final category = lecture.category;
+    final (catColor, catIcon) = categoryStyle(category);
+
+    return Semantics(
+      button: true,
+      label: lecture.title,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: StudyTone.shadow,
+        ),
+        child: Material(
+          color: StudyTone.card,
+          borderRadius: BorderRadius.circular(18),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onOpen,
+            onLongPress: onMenu,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, box) => ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            RepaintBoundary(
+                              child: FileThumbnail(
+                                lecture: lecture,
+                                width: box.maxWidth,
+                                height: box.maxHeight,
+                                radius: 0,
+                                showBadge: false,
+                              ),
+                            ),
+                            if (bookmarked)
+                              PositionedDirectional(
+                                top: 6,
+                                end: 6,
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: StudyTone.purple,
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
+                                  child: Center(
+                                    child: AppIcon(
+                                      AppIcons.bookmarkSaved,
+                                      size: 15,
+                                      color: StudyTone.onPurple,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (fraction > 0)
+                              PositionedDirectional(
+                                start: 0,
+                                bottom: 0,
+                                height: 4,
+                                width: box.maxWidth * fraction.clamp(0.04, 1.0),
+                                child: ColoredBox(color: StudyTone.purple),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    lecture.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textDirection: textDirectionFor(lecture.title),
+                    style: AppText.caption.copyWith(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      height: 1.35,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      if (category != null)
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: catColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                AppIcon(catIcon, size: 14, color: catColor),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    s.categoryName(category),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppText.caption.copyWith(
+                                      color: catColor,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      // زر ⋯ (منطقة لمس 40)
+                      IconButton(
+                        onPressed: onMenu,
+                        tooltip: s.bookCategory,
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        padding: EdgeInsets.zero,
+                        icon: AppIcon(
+                          AppIcons.moreHorizontal,
+                          size: 20,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// قائمة الكتاب: التصنيف، علامات هذا الكتاب، الحذف
+// ---------------------------------------------------------------------------
+
+class _BookSheet extends StatelessWidget {
+  const _BookSheet({
+    required this.lecture,
+    required this.bookmarks,
+    required this.categories,
+    required this.onCategory,
+    required this.onOpenBookmark,
+    required this.onRemoveBookmark,
+    required this.onDelete,
+  });
+
+  final Lecture lecture;
+  final List<Bookmark> bookmarks;
+  final List<String> categories;
+  final ValueChanged<String?> onCategory;
+  final ValueChanged<Bookmark> onOpenBookmark;
+  final ValueChanged<Bookmark> onRemoveBookmark;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final labelStyle = AppText.label.copyWith(color: AppColors.muted);
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.8;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.line,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                lecture.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textDirection: textDirectionFor(lecture.title),
+                style: AppText.title,
+              ),
+              const SizedBox(height: 18),
+
+              // التصنيف
+              Text(s.bookCategory, style: labelStyle),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final key in <String?>[
+                    null,
+                    ...categories,
+                  ])
+                    ChoiceChip(
+                      label: Text(
+                        key == null ? s.noCategory : s.categoryName(key),
+                      ),
+                      selected: lecture.category == key,
+                      onSelected: (_) => onCategory(key),
+                      selectedColor: StudyTone.purple.withValues(alpha: 0.16),
+                      labelStyle: AppText.label.copyWith(
+                        color: lecture.category == key
+                            ? StudyTone.purple
+                            : AppColors.ink,
+                      ),
+                      side: BorderSide(
+                        color: lecture.category == key
+                            ? StudyTone.purple
+                            : AppColors.line,
+                      ),
+                      backgroundColor: StudyTone.card,
+                      showCheckmark: false,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 22),
+
+              // علامات هذا الكتاب
+              Text(s.bookmarksTitle, style: labelStyle),
+              const SizedBox(height: 8),
+              if (bookmarks.isEmpty)
+                Text(
+                  s.noBookmarksInBook,
+                  style: AppText.body.copyWith(color: AppColors.muted),
+                )
+              else
+                StudyCard(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      for (final (i, b) in bookmarks.indexed) ...[
+                        if (i > 0) Divider(height: 1, color: AppColors.line),
+                        ListTile(
+                          onTap: () => onOpenBookmark(b),
+                          leading: AppIcon(
+                            AppIcons.bookmarkSaved,
+                            size: 20,
+                            color: StudyTone.purple,
+                          ),
+                          title: Text(
+                            s.pageNumber(b.page),
+                            style: AppText.label,
+                          ),
+                          subtitle: b.text == null
+                              ? null
+                              : Text(
+                                  b.text!,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textDirection: textDirectionFor(b.text!),
+                                  style: AppText.caption.copyWith(
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                          trailing: IconButton(
+                            tooltip: s.delete,
+                            onPressed: () => onRemoveBookmark(b),
+                            icon: AppIcon(
+                              AppIcons.close,
+                              size: 18,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 22),
+
+              TextButton.icon(
+                onPressed: onDelete,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.red,
+                  minimumSize: const Size(0, 48),
+                ),
+                icon: AppIcon(AppIcons.trash, size: 20, color: AppColors.red),
+                label: Text(s.deleteFile),
               ),
             ],
           ),
@@ -789,54 +1015,9 @@ class _BookmarkRow extends StatelessWidget {
   }
 }
 
-class _SwipeBackground extends StatelessWidget {
-  const _SwipeBackground({required this.alignment});
-
-  final AlignmentGeometry alignment;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      color: AppColors.redSoft,
-      child: AppIcon(AppIcons.trash, size: 22, color: AppColors.red),
-    );
-  }
-}
-
-// لا علامات بعد: شرح قصير لطريقة الحفظ
-class _NoBookmarks extends StatelessWidget {
-  const _NoBookmarks();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _Tone.line),
-        color: _Tone.card,
-      ),
-      child: Row(
-        children: [
-          AppIcon(AppIcons.bookmark, size: 24, color: AppColors.muted),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              AppStrings.of(context).bookmarksEmpty,
-              style: AppText.body.copyWith(color: AppColors.muted, height: 1.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// لا توجد ملفات PDF: زر إضافة مباشر
-class _NoPdfs extends StatelessWidget {
-  const _NoPdfs({required this.busy, required this.onAdd});
+// لا كتب بعد
+class _NoBooks extends StatelessWidget {
+  const _NoBooks({required this.busy, required this.onAdd});
 
   final bool busy;
   final VoidCallback onAdd;
@@ -845,19 +1026,34 @@ class _NoPdfs extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
 
-    return Container(
+    return StudyCard(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-      decoration: BoxDecoration(
-        color: _Tone.card,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _Tone.line),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(child: IconTile(icon: AppIcons.pdf, tint: Tint.pdf, size: 52)),
+          Center(
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: StudyTone.purple.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Center(
+                child: AppIcon(
+                  AppIcons.libraryTab,
+                  size: 28,
+                  color: StudyTone.purple,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 14),
-          Text(s.noPdfsTitle, textAlign: TextAlign.center, style: AppText.headline),
+          Text(
+            s.noPdfsTitle,
+            textAlign: TextAlign.center,
+            style: AppText.headline,
+          ),
           const SizedBox(height: 6),
           Text(
             s.noPdfsBody,
@@ -865,8 +1061,8 @@ class _NoPdfs extends StatelessWidget {
             style: AppText.body.copyWith(color: AppColors.muted),
           ),
           const SizedBox(height: 18),
-          AppButton(
-            label: busy ? s.addingFiles : s.addPdf,
+          StudyButton(
+            label: s.addPdf,
             icon: AppIcons.add,
             busy: busy,
             onPressed: busy ? null : onAdd,
@@ -875,53 +1071,4 @@ class _NoPdfs extends StatelessWidget {
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// خلفية المكتبة: ورق بإطار مزخرف (نهاري كريمي / ليلي أسود)، ثابتة خلف المحتوى
-// ---------------------------------------------------------------------------
-
-class _LibraryBackground extends StatelessWidget {
-  const _LibraryBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final ratio = MediaQuery.devicePixelRatioOf(context);
-
-    return RepaintBoundary(
-      child: ColoredBox(
-        color: AppColors.background, // يظهر لحظة قبل تحميل الصورة
-        child: Image.asset(
-          AppColors.isDark
-              ? 'assets/backgrounds/library_dark.webp'
-              : 'assets/backgrounds/library_light.webp',
-          // fill لا cover: الزخارف على الأطراف الأربعة، والقص يخفي الجانبية
-          fit: BoxFit.fill,
-          // عرض الشاشة يكون صفرًا في أول إطار عند فتح التطبيق
-          cacheWidth: size.width > 0 ? (size.width * ratio).round() : null,
-          gaplessPlayback: true,
-          excludeFromSemantics: true,
-        ),
-      ),
-    );
-  }
-}
-
-// ألوان مأخوذة من زخارف الخلفية، لتنسجم عناصر المكتبة معها
-abstract final class _Tone {
-  // ذهبي داكن ليلًا، وبيج ذهبي نهارًا
-  static Color get gold =>
-      AppColors.isDark ? const Color(0xFFB08D57) : const Color(0xFFAE9672);
-
-  // زر الإضافة نهارًا (أغمق قليلًا من gold حتى تظهر الأيقونة البيضاء)
-  static const Color button = Color(0xFF9C7F52);
-
-  // الخطوط والإطارات الرفيعة
-  static Color get line =>
-      gold.withValues(alpha: AppColors.isDark ? 0.32 : 0.42);
-
-  // البطاقات شبه شفافة حتى يظهر ملمس الورق
-  static Color get card =>
-      AppColors.surface.withValues(alpha: AppColors.isDark ? 0.80 : 0.82);
 }

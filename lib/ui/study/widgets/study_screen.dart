@@ -5,9 +5,12 @@ import '../../../routing/app_navigator.dart';
 import '../../../utils/result.dart';
 import '../../core/ui/core_ui.dart';
 import '../view_models/study_view_model.dart';
+import '../../shell/profile_menu.dart';
 import 'subject_widgets.dart';
+import 'study_tone.dart';
 
-// Study: المواد مثل المجلدات. كل مادة لها لون وأول حرف، وشباترها داخلها.
+// Study (مقتبسة من مرجع المستخدم): تحية وصورة الحساب، بطاقة هدف بنفسجية،
+// ثم المواد صفوفًا بأيقونات ملوّنة ونسبة القراءة. ألوانها في StudyTone.
 class StudyScreen extends StatefulWidget {
   const StudyScreen({super.key, required this.viewModel});
 
@@ -72,7 +75,7 @@ class _StudyScreenState extends State<StudyScreen> {
   Future<void> _newSubject() async {
     final input = await SubjectDialog.show(
       context,
-      suggestedColor: vm.suggestedColor,
+      pickImage: vm.pickCoverImage,
     );
     if (input != null) vm.create.execute(input);
   }
@@ -87,8 +90,12 @@ class _StudyScreenState extends State<StudyScreen> {
           icon: AppIcons.edit,
           label: s.editSubject,
           onTap: () async {
-            final input = await SubjectDialog.show(context, subject: subject);
-            if (input != null) vm.update.execute((subject, input.$1, input.$2));
+            final input = await SubjectDialog.show(
+              context,
+              subject: subject,
+              pickImage: vm.pickCoverImage,
+            );
+            if (input != null) vm.update.execute((subject, input));
           },
         ),
         ActionSheetItem(
@@ -110,177 +117,454 @@ class _StudyScreenState extends State<StudyScreen> {
     final insets = MediaQuery.paddingOf(context);
     final s = AppStrings.of(context);
 
-    return ListenableBuilder(
-      listenable: vm,
-      builder: (context, _) {
-        final header = PageHeader(
-          overline: s.subjectsOverline,
-          title: s.study,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
+    return ColoredBox(
+      color: StudyTone.background,
+      child: ListenableBuilder(
+        listenable: vm,
+        builder: (context, _) {
+          final subjects = vm.subjects;
+
+          return ListView(
+            padding: EdgeInsets.fromLTRB(
+              22,
+              insets.top + 22,
+              22,
+              insets.bottom + 28,
+            ),
             children: [
-              CircleAction(
-                icon: AppIcons.settings,
-                tooltip: s.settings,
-                onPressed: () => AppNavigator.openSettings(context),
-              ),
-              const SizedBox(width: 10),
-              CircleAction(
-                icon: AppIcons.add,
-                tooltip: s.newSubject,
-                dark: true,
-                onPressed: _newSubject,
+              ConstrainedContent(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _Greeting(),
+                    const SizedBox(height: 22),
+                    _GoalCard(
+                      done: vm.finishedChapters,
+                      total: vm.totalChapters,
+                    ),
+                    const SizedBox(height: 28),
+
+                    // عنوان القسم + "مادة جديدة" مكان "View All" في المرجع
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            s.allSubjects,
+                            style: AppText.headline.copyWith(fontSize: 17),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _newSubject,
+                          style: TextButton.styleFrom(
+                            foregroundColor: StudyTone.purple,
+                            minimumSize: const Size(44, 44),
+                          ),
+                          icon: AppIcon(
+                            AppIcons.add,
+                            size: 18,
+                            color: StudyTone.purple,
+                          ),
+                          label: Text(
+                            s.newSubject,
+                            style: AppText.label.copyWith(
+                              color: StudyTone.purple,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    if (!vm.isLoaded)
+                      const Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (subjects.isEmpty)
+                      _NoSubjects(onCreate: _newSubject)
+                    else
+                      for (final subject in subjects) ...[
+                        _SubjectRow(
+                          subject: subject,
+                          chapters: vm.chapterCount(subject),
+                          progress: vm.progressFor(subject),
+                          onTap: () =>
+                              AppNavigator.openSubject(context, subject.id),
+                          onLongPress: () => _subjectActions(subject),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                  ],
+                ),
               ),
             ],
-          ),
-        );
-
-        if (!vm.isLoaded) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        return CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(20, insets.top + 16, 20, 22),
-              sliver: SliverToBoxAdapter(
-                child: ConstrainedContent(child: header),
-              ),
-            ),
-            if (vm.subjects.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: insets.bottom + 40),
-                  child: EmptyState(
-                    icon: AppIcons.folderAdd,
-                    title: s.noSubjectsTitle,
-                    message: s.noSubjectsBody,
-                    actionLabel: s.newSubject,
-                    onAction: _newSubject,
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, insets.bottom + 24),
-                sliver: SliverGrid.builder(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 220,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 14,
-                    mainAxisExtent: 196,
-                  ),
-                  itemCount: vm.subjects.length,
-                  itemBuilder: (context, i) {
-                    final subject = vm.subjects[i];
-                    return _SubjectCard(
-                      subject: subject,
-                      chapters: vm.chapterCount(subject),
-                      onTap: () => AppNavigator.openSubject(context, subject.id),
-                      onLongPress: () => _subjectActions(subject),
-                    );
-                  },
-                ),
-              ),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
 
-// بطاقة مادة: مساحة بلونها وأول حرف كبير، ثم الاسم وعدد الشباتر
-class _SubjectCard extends StatelessWidget {
-  const _SubjectCard({
+// ---------------------------------------------------------------------------
+// الرأس
+// ---------------------------------------------------------------------------
+
+// الرأس: "المواد" (مثل عنوان المكتبة) + سطر قصير + قائمة الحساب ⋮
+class _Greeting extends StatelessWidget {
+  const _Greeting();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  AppIcon(AppIcons.study, size: 28, color: StudyTone.purple),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        s.subjectsTitle,
+                        style: AppText.display.copyWith(fontSize: 30),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                s.studyTagline,
+                style: AppText.body.copyWith(
+                  color: AppColors.muted,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        const ProfileMenuButton(),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// بطاقة الهدف البنفسجية: الشباتر المنتهية من كل المواد + شريط + عبارة قصيرة
+// ---------------------------------------------------------------------------
+
+class _GoalCard extends StatelessWidget {
+  const _GoalCard({required this.done, required this.total});
+
+  final int done;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final fraction = total == 0 ? 0.0 : done / total;
+    final soft = Colors.white.withValues(alpha: 0.78);
+
+    return Semantics(
+      label: '${s.yourProgress}: $done / $total',
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(26),
+          gradient: LinearGradient(
+            begin: AlignmentDirectional.topStart,
+            end: AlignmentDirectional.bottomEnd,
+            colors: StudyTone.goalGradient,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: StudyTone.purple.withValues(alpha: 0.28),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            // زخرفة: قبعة تخرج كبيرة شفافة ونجوم صغيرة (مكان الشخصية في المرجع)
+            PositionedDirectional(
+              end: -14,
+              top: 18,
+              child: AppIcon(
+                AppIcons.study,
+                size: 120,
+                color: Colors.white.withValues(alpha: 0.16),
+              ),
+            ),
+            PositionedDirectional(
+              end: 22,
+              top: 16,
+              child: AppIcon(
+                AppIcons.sparkles,
+                size: 22,
+                color: const Color(0xFFFFD84D).withValues(alpha: 0.9),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    s.yourProgress,
+                    style: AppText.body.copyWith(color: soft),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        '$done',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 38,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                          fontFeatures: AppText.tabular,
+                        ),
+                      ),
+                      Text(
+                        ' / $total  ',
+                        textDirection: TextDirection.ltr,
+                        style: TextStyle(
+                          color: soft,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: AppText.tabular,
+                        ),
+                      ),
+                      Flexible(
+                        child: Text(
+                          s.chaptersDone,
+                          style: AppText.body.copyWith(color: soft),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  // شريط التقدم الأبيض
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: SizedBox(
+                      height: 9,
+                      width: 210,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: ColoredBox(
+                              color: Colors.white.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          FractionallySizedBox(
+                            widthFactor: fraction.clamp(0.0, 1.0),
+                            alignment: AlignmentDirectional.centerStart,
+                            child: const ColoredBox(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppIcon(AppIcons.quote, size: 18, color: soft),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          s.studyQuote,
+                          style: AppText.body.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// صف مادة (مثل "Today's Schedule" في المرجع):
+// أيقونة ملوّنة + الاسم + عدد الشباتر، ونسبة القراءة في الطرف
+// ---------------------------------------------------------------------------
+
+class _SubjectRow extends StatefulWidget {
+  const _SubjectRow({
     required this.subject,
     required this.chapters,
+    required this.progress,
     required this.onTap,
     required this.onLongPress,
   });
 
   final Subject subject;
   final int chapters;
+  final double progress;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
   @override
+  State<_SubjectRow> createState() => _SubjectRowState();
+}
+
+class _SubjectRowState extends State<_SubjectRow> {
+  bool _pressed = false;
+
+  void _press(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    final t = AppTokens.of(context);
-    final color = SubjectColors.of(subject.color);
-    final onColor = SubjectColors.onColor(color);
+    final subject = widget.subject;
+    final percent = (widget.progress * 100).round();
 
     return Semantics(
       button: true,
-      label: '${subject.name}, ${s.chapters(chapters)}',
+      label: '${subject.name}, ${s.chapters(widget.chapters)}, $percent%',
       excludeSemantics: true,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(t.radiusMedium),
-          boxShadow: t.shadow,
-        ),
-        child: Material(
-          color: AppColors.surface,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(t.radiusMedium),
-          ),
-          child: InkWell(
-            onTap: onTap,
-            onLongPress: onLongPress,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 14, 6),
-                      alignment: AlignmentDirectional.bottomStart,
-                      child: Text(
-                        subject.initial.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 54,
-                          fontWeight: FontWeight.w800,
-                          height: 1.1,
-                          color: onColor,
+      child: GestureDetector(
+        onTapDown: (_) => _press(true),
+        onTapUp: (_) => _press(false),
+        onTapCancel: () => _press(false),
+        child: AnimatedScale(
+          // حركة خفيفة عند اللمس فقط
+          scale: _pressed ? 0.98 : 1,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: StudyTone.shadow,
+            ),
+            child: Material(
+              color: StudyTone.card,
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: widget.onTap,
+                onLongPress: widget.onLongPress,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 18, 14),
+                  child: Row(
+                    children: [
+                      SubjectIconTile(iconKey: subjectIconKey(subject)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              subject.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textDirection: textDirectionFor(subject.name),
+                              style: AppText.headline,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              s.chapters(widget.chapters),
+                              style: AppText.caption.copyWith(
+                                color: AppColors.muted,
+                                fontFeatures: AppText.tabular,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 12, 8, 6),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          subject.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textDirection: textDirectionFor(subject.name),
-                          style: AppText.headline,
+                      const SizedBox(width: 10),
+                      Text(
+                        '$percent%',
+                        textDirection: TextDirection.ltr,
+                        style: AppText.label.copyWith(
+                          color: AppColors.muted,
+                          fontFeatures: AppText.tabular,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          s.chapters(chapters),
-                          style: AppText.caption.copyWith(
-                            color: AppColors.muted,
-                            fontFeatures: AppText.tabular,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// لا مواد بعد: بطاقة بزر واحد واضح
+class _NoSubjects extends StatelessWidget {
+  const _NoSubjects({required this.onCreate});
+
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 20),
+      decoration: BoxDecoration(
+        color: StudyTone.card,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: StudyTone.shadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Center(child: SubjectIconTile(iconKey: 'book', size: 56)),
+          const SizedBox(height: 14),
+          Text(
+            s.noSubjectsTitle,
+            textAlign: TextAlign.center,
+            style: AppText.headline,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            s.noSubjectsBody,
+            textAlign: TextAlign.center,
+            style: AppText.body.copyWith(color: AppColors.muted),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onCreate,
+            style: FilledButton.styleFrom(
+              backgroundColor: StudyTone.purple,
+              foregroundColor: StudyTone.onPurple,
+              minimumSize: const Size(0, 52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            icon: AppIcon(AppIcons.add, size: 20, color: StudyTone.onPurple),
+            label: Text(s.newSubject),
+          ),
+        ],
       ),
     );
   }

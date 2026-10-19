@@ -16,8 +16,8 @@ class DatabaseService {
 
     final db = await openDatabase(
       path,
-      // النسخة 2: المواد والشباتر (Study)
-      version: 2,
+      // النسخة 2: المواد والشباتر. 3: مكان الملف (مكتبة / مذاكرة). 4: أيقونة المادة وصورة غلافها. 5: تصنيف الكتاب
+      version: 5,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE lectures (
@@ -25,13 +25,33 @@ class DatabaseService {
             name TEXT NOT NULL,
             filePath TEXT NOT NULL,
             fileType TEXT NOT NULL,
-            dateAdded TEXT NOT NULL
+            dateAdded TEXT NOT NULL,
+            origin TEXT NOT NULL DEFAULT 'library',
+            category TEXT
           )
         ''');
         await _createStudyTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createStudyTables(db);
+        if (oldVersion < 3) {
+          await db.execute(
+            "ALTER TABLE lectures ADD COLUMN origin TEXT NOT NULL DEFAULT 'library'",
+          );
+          // ما كان في مادة يصير ملف مذاكرة، والباقي يبقى في المكتبة
+          await db.execute(
+            "UPDATE lectures SET origin = 'study' "
+            "WHERE id IN (SELECT lectureId FROM chapters)",
+          );
+        }
+        // جداول النسخة 2 الجديدة فيها العمودان أصلًا
+        if (oldVersion >= 2 && oldVersion < 4) {
+          await db.execute("ALTER TABLE subjects ADD COLUMN icon TEXT");
+          await db.execute("ALTER TABLE subjects ADD COLUMN coverPath TEXT");
+        }
+        if (oldVersion < 5) {
+          await db.execute('ALTER TABLE lectures ADD COLUMN category TEXT');
+        }
       },
     );
 
@@ -46,6 +66,8 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         color INTEGER NOT NULL,
+        icon TEXT,
+        coverPath TEXT,
         createdAt TEXT NOT NULL
       )
     ''');
@@ -71,6 +93,7 @@ class DatabaseService {
     required String filePath,
     required String fileType,
     required DateTime dateAdded,
+    String origin = 'library',
   }) async {
     final db = await _open();
 
@@ -79,7 +102,19 @@ class DatabaseService {
       'filePath': filePath,
       'fileType': fileType,
       'dateAdded': dateAdded.toIso8601String(),
+      'origin': origin,
     });
+  }
+
+  // تصنيف كتاب المكتبة (رواية، دراسة...) أو null بلا تصنيف
+  Future<void> updateLectureCategory(int id, String? category) async {
+    final db = await _open();
+    await db.update(
+      'lectures',
+      {'category': category},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // حذف الملف يحذف شابتره أيضًا
@@ -105,11 +140,18 @@ class DatabaseService {
     return db.query('chapters', orderBy: 'subjectId ASC, sortOrder ASC, id ASC');
   }
 
-  Future<int> insertSubject({required String name, required int color}) async {
+  // color بقي في الجدول (0) ولم يعد يُستخدم في الواجهة
+  Future<int> insertSubject({
+    required String name,
+    String? icon,
+    String? coverPath,
+  }) async {
     final db = await _open();
     return db.insert('subjects', {
       'name': name,
-      'color': color,
+      'color': 0,
+      'icon': icon,
+      'coverPath': coverPath,
       'createdAt': DateTime.now().toIso8601String(),
     });
   }
@@ -117,12 +159,13 @@ class DatabaseService {
   Future<void> updateSubject(
     int id, {
     required String name,
-    required int color,
+    String? icon,
+    String? coverPath,
   }) async {
     final db = await _open();
     await db.update(
       'subjects',
-      {'name': name, 'color': color},
+      {'name': name, 'icon': icon, 'coverPath': coverPath},
       where: 'id = ?',
       whereArgs: [id],
     );

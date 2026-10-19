@@ -176,14 +176,15 @@ abstract final class AppColors {
 }
 
 // ---------------------------------------------------------------------------
-// الخطوط: Readex Pro (عربي + إنجليزي)، وزنان 500 و700/800
+// الخطوط: Almarai (عربي + إنجليزي)، أوزانه 400 و700 و800 فقط
+// بلا تباعد حروف افتراضي حتى لا تنفصل الحروف العربية
 // ---------------------------------------------------------------------------
 
 abstract final class AppText {
   static const TextStyle display = TextStyle(
     fontSize: 30,
     fontWeight: FontWeight.w800,
-    letterSpacing: -0.4,
+    letterSpacing: 0,
     height: 1.15,
   );
 
@@ -201,13 +202,13 @@ abstract final class AppText {
 
   static const TextStyle body = TextStyle(
     fontSize: 14.5,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w400,
     height: 1.45,
   );
 
   static const TextStyle caption = TextStyle(
     fontSize: 12,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w400,
     height: 1.35,
   );
 
@@ -215,7 +216,7 @@ abstract final class AppText {
   static const TextStyle label = TextStyle(
     fontSize: 13,
     fontWeight: FontWeight.w800,
-    letterSpacing: 0.9,
+    letterSpacing: 0,
   );
 
   static const List<FontFeature> tabular = [FontFeature.tabularFigures()];
@@ -223,7 +224,7 @@ abstract final class AppText {
   // تباعد الحروف يفصل الحروف العربية، فيُلغى في العربية
   static TextStyle tracked(BuildContext context, TextStyle style) {
     final rtl = Directionality.maybeOf(context) == TextDirection.rtl;
-    return rtl ? style.copyWith(letterSpacing: 0) : style;
+    return style.copyWith(letterSpacing: rtl ? 0 : 0.9);
   }
 }
 
@@ -349,7 +350,8 @@ class Tint {
 // ---------------------------------------------------------------------------
 
 abstract final class AppTheme {
-  static const String fontName = 'Readex Pro';
+  // Almarai: أقرب خط مجاني لشكل DIN Next Arabic (طلب المستخدم 19 أكتوبر)
+  static const String fontName = 'Almarai';
 
   // ثيم فاتح ثابت لعارض الملفات (مصمم لخلفية فاتحة فقط)
   static ThemeData? _lightOnly;
@@ -387,7 +389,7 @@ abstract final class AppTheme {
     );
 
     // الخط يُحمَّل من Google Fonts عند أول تشغيل مع الإنترنت ثم يُخزَّن.
-    // Readex Pro يدعم العربية والإنجليزية.
+    // Almarai يدعم العربية والإنجليزية (أوزان 300 / 400 / 700 / 800).
     String? fontFamily;
     try {
       fontFamily = GoogleFonts.getFont(fontName).fontFamily;

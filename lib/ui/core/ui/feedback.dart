@@ -118,7 +118,10 @@ class ProgressTrack extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.all(Radius.circular(6)),
+                    // الطرف الأصفر في اتجاه التقدم (يسارًا في العربية)
                     gradient: LinearGradient(
+                      begin: AlignmentDirectional.centerStart,
+                      end: AlignmentDirectional.centerEnd,
                       colors: [AppColors.ink, AppColors.ink, AppColors.yellow],
                       stops: [0, 0.7, 1],
                     ),

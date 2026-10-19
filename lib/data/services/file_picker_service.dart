@@ -10,9 +10,19 @@ class SelectedFile {
 
 // نافذة اختيار الملفات من النظام
 class FilePickerService {
-  static const List<String> allowedExtensions = ['pdf', 'png', 'jpg', 'jpeg'];
+  static const List<String> allowedExtensions = [
+    'pdf',
+    'epub',
+    'png',
+    'jpg',
+    'jpeg',
+  ];
 
   static const List<String> pdfOnly = ['pdf'];
+  static const List<String> epubOnly = ['epub'];
+
+  // الكتب: PDF أو EPUB (المكتبة وشباتر المذاكرة)
+  static const List<String> books = ['pdf', 'epub'];
 
   Future<List<SelectedFile>> pickLectureFiles({
     List<String> extensions = allowedExtensions,
@@ -25,5 +35,12 @@ class FilePickerService {
     return [
       for (final file in files) SelectedFile(name: file.name, path: file.path),
     ];
+  }
+
+  // صورة واحدة من المعرض (غلاف المادة). null عند الإلغاء
+  Future<String?> pickImage() async {
+    final List<PlatformFile> files =
+        await FilePicker.pickFiles(type: FileType.image);
+    return files.isEmpty ? null : files.first.path;
   }
 }

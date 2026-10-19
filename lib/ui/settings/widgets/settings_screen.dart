@@ -32,18 +32,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
 
-    return Scaffold(
-      appBar: AppBar(),
+    return PaperScaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+      ),
       body: ListenableBuilder(
         listenable: vm,
         builder: (context, _) => ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(28, 0, 28, 32),
           children: [
             ConstrainedContent(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  PageHeader(overline: s.preferences, title: s.settings),
+                  PaperHeader(overline: s.preferences, title: s.settings),
                   const SizedBox(height: 26),
 
                   // ---- المظهر ----
@@ -92,7 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // ---- اللغة ----
                   SectionHeader(s.language),
                   const SizedBox(height: 14),
-                  SoftCard(
+                  PaperCard(
                     padding: const EdgeInsets.all(6),
                     child: Column(
                       children: [
@@ -170,10 +173,10 @@ class _ThemeTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: selected ? AppColors.yellowSoft : AppColors.surface,
+          color: selected ? AppColors.accentSoft : PaperTone.card,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: selected ? AppColors.yellow : AppColors.line,
+            color: selected ? PaperTone.gold : PaperTone.line,
             width: selected ? 2 : 1,
           ),
           boxShadow: AppTokens.of(context).shadow,

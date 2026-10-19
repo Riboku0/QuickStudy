@@ -747,7 +747,6 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   // العارض مصمم لخلفية فاتحة، فيبقى فاتحًا حتى في الوضع الداكن
   static const Color dark = Color(0xFF202020);
   static const Color red = Color(0xFFC62828);
-  static const Color accent = Color(0xFF1A73E8);
   static const Color pillColor = Color(0xFF7FF0DF);
 
   // الهامش الجانبي حسب إعدادات القراءة
@@ -2229,7 +2228,23 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
     final bg = _paper;
     final onBg = _ink;
 
-    return Scaffold(
+    // زر الرجوع في الهاتف: يُنهي الكتابة أو يلغي التحديد أولًا، ثم يخرج من الكتاب
+    final busy = _editMode || _selPage != null;
+
+    return PopScope(
+      canPop: !busy,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _finishEditing(); // يحفظ ما كُتب
+        setState(() {
+          _editMode = false;
+          _selectedId = null;
+          _selPage = null;
+          _selWords = null;
+          _selMarkId = null;
+        });
+      },
+      child: Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
         backgroundColor: bg,
@@ -2356,6 +2371,7 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
           : _error != null
               ? _buildError()
               : _buildBody(),
+      ),
     );
   }
 
@@ -2467,15 +2483,17 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   // ------------------------- الشريط السفلي -------------------------
 
   // ألوان واجهة القراءة تتبع الليلي والنهاري
-  ReaderChrome get _chrome => ReaderChrome(dark: _paperIsDark);
+  ReaderChrome get _chrome =>
+      ReaderChrome(dark: _paperIsDark, paper: _paper);
 
   // ثيم لشريط القلم: الأيقونات والنصوص والشرائح بألوان الليلي عند الحاجة
   ThemeData _chromeTheme(BuildContext context) {
     final base = Theme.of(context);
     final c = _chrome;
-    if (!c.dark) return base;
+    // نهارًا وليلًا: لون الورق ولون الثيم بدل الأبيض والأزرق الافتراضيين
     return base.copyWith(
       colorScheme: base.colorScheme.copyWith(
+        primary: c.strong,
         surface: c.surface,
         onSurface: c.ink,
         onSurfaceVariant: c.ink,
@@ -2534,8 +2552,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
       visualDensity: VisualDensity.compact,
       onPressed: onTap,
       style: IconButton.styleFrom(
-        backgroundColor: on ? accent.withValues(alpha: 0.14) : null,
-        foregroundColor: on ? accent : _chrome.ink,
+        backgroundColor: on ? _chrome.strong.withValues(alpha: 0.14) : null,
+        foregroundColor: on ? _chrome.strong : _chrome.ink,
       ),
       icon: Icon(icon, size: 22),
     );
@@ -2609,9 +2627,9 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
                     ),
                     selected: selected,
                     showCheckmark: false,
-                    selectedColor: accent.withValues(alpha: 0.16),
+                    selectedColor: _chrome.strong.withValues(alpha: 0.16),
                     side: BorderSide(
-                      color: selected ? accent : _chrome.line,
+                      color: selected ? _chrome.strong : _chrome.line,
                     ),
                     visualDensity: VisualDensity.compact,
                     onSelected: (_) {
@@ -2751,7 +2769,7 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
                         color: Color(c),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: selected ? accent : _chrome.line,
+                          color: selected ? _chrome.strong : _chrome.line,
                           width: selected ? 3 : 1,
                         ),
                       ),

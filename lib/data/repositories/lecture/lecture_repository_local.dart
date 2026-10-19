@@ -53,7 +53,11 @@ class LocalLectureRepository extends LectureRepository {
   }
 
   @override
-  Future<Result<ImportSummary>> importFiles(List<SelectedFile> files) async {
+  Future<Result<ImportSummary>> importFiles(
+    List<SelectedFile> files, {
+    LectureOrigin origin = LectureOrigin.library,
+    List<int>? ids,
+  }) async {
     var added = 0;
     var skipped = 0;
 
@@ -72,7 +76,11 @@ class LocalLectureRepository extends LectureRepository {
         // نفس الاسم ونفس الحجم = ملف مكرر
         final size = await _storage.sizeOf(path);
         final duplicate = _lectures.any(
-          (l) => l.exists && l.name == file.name && l.size == size,
+          (l) =>
+              l.exists &&
+              l.origin == origin &&
+              l.name == file.name &&
+              l.size == size,
         );
 
         if (duplicate) {
@@ -83,12 +91,14 @@ class LocalLectureRepository extends LectureRepository {
         final savedPath = await _storage.copyIntoApp(path, file.name);
 
         try {
-          await _database.insertLecture(
+          final id = await _database.insertLecture(
             name: file.name,
             filePath: savedPath,
             fileType: ext,
             dateAdded: DateTime.now(),
+            origin: origin.name,
           );
+          ids?.add(id);
         } catch (_) {
           // لا نترك نسخة يتيمة إذا فشل الحفظ في قاعدة البيانات
           await _storage.deleteIfExists(savedPath);
@@ -104,6 +114,21 @@ class LocalLectureRepository extends LectureRepository {
       return Result.ok(ImportSummary(added: added, skipped: skipped));
     } catch (e) {
       if (added > 0) await load();
+      return Result.error(asException(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> setCategory(Lecture lecture, String? category) async {
+    try {
+      await _database.updateLectureCategory(lecture.id, category);
+      _lectures = List.unmodifiable([
+        for (final l in _lectures)
+          l.id == lecture.id ? l.withCategory(category) : l,
+      ]);
+      notifyListeners();
+      return const Result.ok(null);
+    } catch (e) {
       return Result.error(asException(e));
     }
   }

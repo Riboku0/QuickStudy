@@ -1,85 +1,182 @@
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../domain/models/subject.dart';
 import '../../core/ui/core_ui.dart';
 
-// ألوان المواد: درجات واضحة تعمل في الفاتح والداكن
-abstract final class SubjectColors {
-  static const List<Color> values = [
-    Color(0xFFFFD84D), // أصفر
-    Color(0xFFE8735A), // مرجاني
-    Color(0xFF4F7FD9), // أزرق
-    Color(0xFF3E9E6A), // أخضر
-    Color(0xFF8165D6), // بنفسجي
-    Color(0xFFEE9A3A), // برتقالي
-    Color(0xFF2F9E9A), // فيروزي
-    Color(0xFFD9668F), // وردي
-  ];
+// نسبة غلاف المادة (عريض مثل غلاف صفحة)
+const double subjectCoverRatio = 2.4;
 
-  static Color of(int index) => values[index % values.length];
-
-  // الحرف أسود فوق الألوان الفاتحة وأبيض فوق الباقي
-  static Color onColor(Color c) =>
-      c.computeLuminance() > 0.45 ? const Color(0xFF202020) : Colors.white;
-}
-
-// غلاف المادة: لونها وأول حرف من اسمها
+// غلاف المادة: صورة يختارها المستخدم، وبدونها مساحة هادئة عليها اسم المادة.
 class SubjectCover extends StatelessWidget {
   const SubjectCover({
     super.key,
     required this.subject,
-    this.size = 56,
-    this.radius = 18,
+    this.radius = BorderRadius.zero,
   });
 
   final Subject subject;
-  final double size;
-  final double radius;
+  final BorderRadius radius;
 
   @override
   Widget build(BuildContext context) {
-    final color = SubjectColors.of(subject.color);
-
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(radius),
-      ),
-      child: ExcludeSemantics(
-        child: Text(
-          subject.initial.toUpperCase(),
-          style: TextStyle(
-            fontSize: size * 0.46,
-            fontWeight: FontWeight.w800,
-            height: 1,
-            color: SubjectColors.onColor(color),
-          ),
+    return AspectRatio(
+      aspectRatio: subjectCoverRatio,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: SubjectCoverImage(
+          path: subject.coverPath,
+          fallbackText: subject.name,
         ),
       ),
     );
   }
 }
 
-// نافذة إنشاء مادة أو تعديلها. تملك الـ controller وتتخلص منه في dispose.
-// ترجع (الاسم، رقم اللون) أو null عند الإلغاء.
+// صورة الغلاف أو البديل الهادئ (يُستخدم أيضًا للمعاينة في نافذة المادة)
+class SubjectCoverImage extends StatelessWidget {
+  const SubjectCoverImage({
+    super.key,
+    required this.path,
+    required this.fallbackText,
+  });
+
+  final String? path;
+  final String fallbackText;
+
+  @override
+  Widget build(BuildContext context) {
+    final path = this.path;
+    final fallback = ColoredBox(
+      color: AppColors.chip,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Text(
+            fallbackText,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            textDirection: textDirectionFor(fallbackText),
+            style: AppText.display.copyWith(
+              fontSize: 26,
+              color: AppColors.ink.withValues(alpha: 0.72),
+              height: 1.25,
+            ),
+          ),
+        ),
+      ),
+    );
+    if (path == null) return fallback;
+
+    final width = MediaQuery.sizeOf(context).width;
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    return RepaintBoundary(
+      child: Image.file(
+        File(path),
+        fit: BoxFit.cover,
+        cacheWidth: width > 0 ? (width * ratio).round() : null,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => fallback,
+      ),
+    );
+  }
+}
+
+// أيقونات المواد: Phosphor Duotone (خط + تعبئة خفيفة بنفس اللون) مثل مرجع المستخدم.
+// المفتاح يُحفظ في قاعدة البيانات (subjects.icon)، فلا تغيّر المفاتيح.
+// كل أيقونة لها لونها، والمادة بلا أيقونة تأخذ واحدة مختلفة حسب رقمها (تنوع تلقائي).
+const Map<String, (PhosphorDuotoneIconData, Color)> subjectIcons = {
+  'math': (PhosphorIconsDuotone.calculator, Color(0xFF4A72D9)),
+  'nature': (PhosphorIconsDuotone.leaf, Color(0xFF3F9A5B)),
+  'history': (PhosphorIconsDuotone.bank, Color(0xFFD5524F)),
+  'physics': (PhosphorIconsDuotone.atom, Color(0xFF7259DA)),
+  'chemistry': (PhosphorIconsDuotone.flask, Color(0xFF14A3A3)),
+  'code': (PhosphorIconsDuotone.code, Color(0xFF3F51C4)),
+  'biology': (PhosphorIconsDuotone.dna, Color(0xFF2E9E6E)),
+  'brain': (PhosphorIconsDuotone.brain, Color(0xFFD45B93)),
+  'medicine': (PhosphorIconsDuotone.stethoscope, Color(0xFFE0605A)),
+  'globe': (PhosphorIconsDuotone.globeHemisphereWest, Color(0xFF2A8FD0)),
+  'language': (PhosphorIconsDuotone.translate, Color(0xFF16A0B0)),
+  'writing': (PhosphorIconsDuotone.pencilLine, Color(0xFFDB8A28)),
+  'stats': (PhosphorIconsDuotone.chartLineUp, Color(0xFF4A72D9)),
+  'business': (PhosphorIconsDuotone.briefcase, Color(0xFFB7792B)),
+  'finance': (PhosphorIconsDuotone.coins, Color(0xFFD9A21E)),
+  'law': (PhosphorIconsDuotone.scales, Color(0xFF9A5A3C)),
+  'lab': (PhosphorIconsDuotone.microscope, Color(0xFF0F98B8)),
+  'engineering': (PhosphorIconsDuotone.gear, Color(0xFF5B6B80)),
+  'art': (PhosphorIconsDuotone.palette, Color(0xFFE0567A)),
+  'music': (PhosphorIconsDuotone.musicNotes, Color(0xFF8E5BD8)),
+  'book': (PhosphorIconsDuotone.bookOpenText, Color(0xFF7259DA)),
+  'idea': (PhosphorIconsDuotone.lightbulb, Color(0xFFE2A21A)),
+  'space': (PhosphorIconsDuotone.rocket, Color(0xFFE2683A)),
+  'geography': (PhosphorIconsDuotone.compass, Color(0xFF1F9C8A)),
+};
+
+final List<String> subjectIconKeys = subjectIcons.keys.toList();
+
+// الأيقونة الفعلية للمادة: اختيار المستخدم، وإلا واحدة حسب رقم المادة
+String subjectIconKey(Subject subject) {
+  final icon = subject.icon;
+  if (icon != null && subjectIcons.containsKey(icon)) return icon;
+  return subjectIconKeys[subject.id % subjectIconKeys.length];
+}
+
+Color subjectIconColor(String key) =>
+    (subjectIcons[key] ?? subjectIcons['book']!).$2;
+
+// أيقونة Duotone بلونها
+class SubjectGlyph extends StatelessWidget {
+  const SubjectGlyph({super.key, required this.iconKey, this.size = 26});
+
+  final String iconKey;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final (data, color) = subjectIcons[iconKey] ?? subjectIcons['book']!;
+    return PhosphorIcon(
+      data,
+      size: size,
+      color: color,
+      duotoneSecondaryOpacity: 0.28,
+    );
+  }
+}
+
+// أيقونة المادة بجانب اسمها (صفحتا المادة والشابتر)
+class SubjectIconBadge extends StatelessWidget {
+  const SubjectIconBadge({super.key, required this.subject, this.size = 22});
+
+  final Subject subject;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SubjectGlyph(iconKey: subjectIconKey(subject), size: size * 1.1);
+  }
+}
+
+// نافذة إنشاء مادة أو تعديلها: الاسم، الأيقونة، صورة الغلاف.
+// تملك الـ controller وتتخلص منه في dispose. ترجع SubjectDraft أو null عند الإلغاء.
+// pickImage يأتي من الـ ViewModel (اختيار صورة من الهاتف).
 class SubjectDialog extends StatefulWidget {
-  const SubjectDialog({super.key, this.subject, this.suggestedColor = 0});
+  const SubjectDialog({super.key, this.subject, required this.pickImage});
 
   final Subject? subject;
-  final int suggestedColor;
+  final Future<String?> Function() pickImage;
 
-  static Future<(String, int)?> show(
+  static Future<SubjectDraft?> show(
     BuildContext context, {
     Subject? subject,
-    int suggestedColor = 0,
+    required Future<String?> Function() pickImage,
   }) {
-    return showDialog<(String, int)>(
+    return showDialog<SubjectDraft>(
       context: context,
-      builder: (_) =>
-          SubjectDialog(subject: subject, suggestedColor: suggestedColor),
+      builder: (_) => SubjectDialog(subject: subject, pickImage: pickImage),
     );
   }
 
@@ -90,7 +187,11 @@ class SubjectDialog extends StatefulWidget {
 class _SubjectDialogState extends State<SubjectDialog> {
   late final TextEditingController _name =
       TextEditingController(text: widget.subject?.name ?? '');
-  late int _color = widget.subject?.color ?? widget.suggestedColor;
+  // مادة جديدة: أيقونة عشوائية حتى لا تتشابه المواد
+  late String _icon = widget.subject == null
+      ? subjectIconKeys[math.Random().nextInt(subjectIconKeys.length)]
+      : subjectIconKey(widget.subject!);
+  late String? _cover = widget.subject?.coverPath;
 
   @override
   void initState() {
@@ -104,99 +205,157 @@ class _SubjectDialogState extends State<SubjectDialog> {
     super.dispose();
   }
 
+  Future<void> _chooseCover() async {
+    final path = await widget.pickImage();
+    if (path != null && mounted) setState(() => _cover = path);
+  }
+
   void _submit() {
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    Navigator.of(context).pop((name, _color));
+    Navigator.of(context)
+        .pop(SubjectDraft(name: name, icon: _icon, cover: _cover));
   }
 
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     final editing = widget.subject != null;
-    final preview = Subject(id: 0, name: _name.text, color: _color);
+    final labelStyle = AppText.label.copyWith(color: AppColors.muted);
 
     return AlertDialog(
       title: Text(
         editing ? s.editSubject : s.newSubject,
         style: AppText.title,
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                SubjectCover(subject: preview, size: 52, radius: 16),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: TextField(
-                    controller: _name,
-                    autofocus: !editing,
-                    maxLength: 40,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _submit(),
-                    decoration: InputDecoration(
-                      labelText: s.subjectName,
-                      hintText: s.subjectNameHint,
-                      counterText: '',
-                    ),
-                  ),
+      content: SizedBox(
+        width: 360,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _name,
+                autofocus: !editing,
+                maxLength: 40,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+                decoration: InputDecoration(
+                  labelText: s.subjectName,
+                  hintText: s.subjectNameHint,
+                  counterText: '',
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              s.subjectColor,
-              style: AppText.label.copyWith(color: AppColors.muted),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final (i, c) in SubjectColors.values.indexed)
-                  Semantics(
-                    button: true,
-                    selected: i == _color,
-                    label: '${s.subjectColor} ${i + 1}',
-                    child: InkResponse(
-                      onTap: () => setState(() => _color = i),
-                      radius: 24,
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Center(
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 160),
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: c,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: i == _color
-                                    ? AppColors.ink
-                                    : Colors.transparent,
-                                width: 2.5,
-                              ),
-                            ),
-                            child: i == _color
-                                ? Icon(
-                                    Icons.check,
-                                    size: 18,
-                                    color: SubjectColors.onColor(c),
-                                  )
+              ),
+              const SizedBox(height: 20),
+
+              // الأيقونة
+              Text(s.subjectIcon, style: labelStyle),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
+                  for (final key in subjectIconKeys)
+                    Semantics(
+                      button: true,
+                      selected: key == _icon,
+                      label: key,
+                      child: InkResponse(
+                        onTap: () => setState(() => _icon = key),
+                        radius: 26,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            color: key == _icon
+                                ? subjectIconColor(key).withValues(alpha: 0.12)
                                 : null,
+                            border: Border.all(
+                              color: key == _icon
+                                  ? subjectIconColor(key)
+                                  : Colors.transparent,
+                              width: 1.6,
+                            ),
+                          ),
+                          child: Center(
+                            child: SubjectGlyph(iconKey: key, size: 28),
                           ),
                         ),
                       ),
                     ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // صورة الغلاف (اختيارية)
+              Text(s.coverImage, style: labelStyle),
+              const SizedBox(height: 8),
+              AspectRatio(
+                aspectRatio: subjectCoverRatio,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _chooseCover,
+                      child: _cover == null
+                          ? DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: AppColors.chip,
+                                border: Border.all(color: AppColors.line),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    AppIcon(
+                                      AppIcons.imageAdd,
+                                      size: 24,
+                                      color: AppColors.muted,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      s.chooseImage,
+                                      style: AppText.caption.copyWith(
+                                        color: AppColors.muted,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : SubjectCoverImage(
+                              path: _cover,
+                              fallbackText: _name.text,
+                            ),
+                    ),
                   ),
-              ],
-            ),
-          ],
+                ),
+              ),
+              if (_cover != null)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _chooseCover,
+                      child: Text(s.changeImage),
+                    ),
+                    TextButton(
+                      onPressed: () => setState(() => _cover = null),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.red,
+                      ),
+                      child: Text(s.removeImage),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
       actions: [

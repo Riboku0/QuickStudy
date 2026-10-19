@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../domain/models/subject.dart';
 import '../../../utils/result.dart';
 import '../../services/database_service.dart';
+import '../../services/file_storage_service.dart';
 import '../lecture/lecture_repository.dart';
 
 // المواد وشباترها في SQLite. يستمع للمكتبة: حذف ملف يحذف شابتره.
@@ -10,13 +12,16 @@ class SubjectRepository extends ChangeNotifier {
   SubjectRepository({
     required DatabaseService database,
     required LectureRepository lectures,
+    required FileStorageService storage,
   })  : _database = database,
-        _lectures = lectures {
+        _lectures = lectures,
+        _storage = storage {
     _lectures.addListener(_onLecturesChanged);
   }
 
   final DatabaseService _database;
   final LectureRepository _lectures;
+  final FileStorageService _storage;
 
   List<Subject> _subjects = const [];
   List<Chapter> _chapters = const [];
@@ -29,6 +34,13 @@ class SubjectRepository extends ChangeNotifier {
   Subject? subject(int id) {
     for (final s in _subjects) {
       if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  Chapter? chapter(int id) {
+    for (final c in _chapters) {
+      if (c.id == id) return c;
     }
     return null;
   }
@@ -65,14 +77,51 @@ class SubjectRepository extends ChangeNotifier {
     }
   }
 
-  Future<Result<int>> createSubject(String name, int color) =>
-      _run(() => _database.insertSubject(name: name.trim(), color: color));
+  Future<Result<int>> createSubject(SubjectDraft draft) => _run(() async {
+        final cover = await _storeCover(draft.cover, previous: null);
+        return _database.insertSubject(
+          name: draft.name.trim(),
+          icon: draft.icon,
+          coverPath: cover,
+        );
+      });
 
-  Future<Result<void>> updateSubject(int id, String name, int color) =>
-      _run(() => _database.updateSubject(id, name: name.trim(), color: color));
+  Future<Result<void>> updateSubject(int id, SubjectDraft draft) =>
+      _run(() async {
+        final cover = await _storeCover(
+          draft.cover,
+          previous: subject(id)?.coverPath,
+        );
+        await _database.updateSubject(
+          id,
+          name: draft.name.trim(),
+          icon: draft.icon,
+          coverPath: cover,
+        );
+      });
 
-  Future<Result<void>> deleteSubject(int id) =>
-      _run(() => _database.deleteSubject(id));
+  // صورة جديدة تُنسخ لمجلد التطبيق، والقديمة تُحذف. نفس المسار = بلا تغيير.
+  Future<String?> _storeCover(String? cover, {required String? previous}) async {
+    if (cover == previous) return previous;
+    final copied = cover == null
+        ? null
+        : await _storage.copyIntoApp(cover, 'cover_${p.basename(cover)}');
+    if (previous != null) await _storage.deleteIfExists(previous);
+    return copied;
+  }
+
+  // ملفات المذاكرة لا تعيش خارج موادها: حذف المادة يحذف ملفات شباترها وغلافها
+  Future<Result<void>> deleteSubject(int id) async {
+    final cover = subject(id)?.coverPath;
+    final files = {for (final c in chaptersOf(id)) c.lectureId};
+    for (final lecture in _lectures.lectures.toList()) {
+      if (!files.contains(lecture.id)) continue;
+      final deleted = await _lectures.delete(lecture);
+      if (deleted is Err<void>) return deleted;
+    }
+    if (cover != null) await _storage.deleteIfExists(cover);
+    return _run(() => _database.deleteSubject(id));
+  }
 
   Future<Result<void>> addChapters(int subjectId, List<int> lectureIds) {
     final taken = assignedLectureIds;
@@ -92,8 +141,19 @@ class SubjectRepository extends ChangeNotifier {
     return _run(() => _database.renameChapter(id, clean.isEmpty ? null : clean));
   }
 
-  Future<Result<void>> removeChapter(int id) =>
-      _run(() => _database.deleteChapter(id));
+  // إزالة الشابتر تحذف ملفه (وملاحظاته وتحديداته)، وقاعدة البيانات تحذف الشابتر معه
+  Future<Result<void>> removeChapter(int id) async {
+    final c = chapter(id);
+    if (c == null) return const Result.ok(null);
+    for (final lecture in _lectures.lectures) {
+      if (lecture.id == c.lectureId) {
+        final deleted = await _lectures.delete(lecture);
+        if (deleted is Err<void>) return deleted;
+        return load();
+      }
+    }
+    return _run(() => _database.deleteChapter(id));
+  }
 
   // الترتيب يتغير فورًا في الواجهة ثم يُحفظ
   Future<Result<void>> reorder(int subjectId, List<int> orderedIds) {

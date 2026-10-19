@@ -81,7 +81,9 @@ class _FileThumbnailState extends State<FileThumbnail> {
     });
   }
 
-  Tint get _tint => widget.lecture.isPdf
+  Tint get _tint => widget.lecture.isEpub
+      ? Tint.green
+      : widget.lecture.isPdf
       ? Tint.pdf
       : (widget.lecture.isImage ? Tint.image : Tint.neutral);
 
@@ -165,7 +167,9 @@ class _FileThumbnailState extends State<FileThumbnail> {
 
   Widget _placeholder({bool loading = false}) {
     final iconSize = (widget.width < widget.height ? widget.width : widget.height) * 0.38;
-    final icon = widget.lecture.isPdf
+    final icon = widget.lecture.isEpub
+        ? AppIcons.book
+        : widget.lecture.isPdf
         ? AppIcons.pdf
         : (widget.lecture.isImage ? AppIcons.image : AppIcons.file);
 

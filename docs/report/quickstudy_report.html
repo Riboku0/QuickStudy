@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>QuickStudy Requirements Report</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  :root { --ink:#202020; --muted:#6b6b6b; --line:#d9d4c8; --cream:#F3EFE6; --yellow:#FFD84D; --soft:#FAE8A9; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 15pt; margin: 22px 0 8px; padding-left: 10px; border-left: 5px solid var(--yellow); page-break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 14px 0 4px; page-break-after: avoid; }
+  p { margin: 4px 0 8px; }
+  .muted { color: var(--muted); }
+  .cover { background: var(--cream); border-radius: 14px; padding: 26px 26px 20px; margin-bottom: 10px; }
+  .cover .tag { display:inline-block; background: var(--yellow); font-weight:700; font-size:9pt; padding:2px 10px; border-radius: 20px; margin-bottom: 10px; }
+  .meta { display:flex; gap: 22px; margin-top: 14px; font-size: 9.5pt; }
+  .meta b { display:block; font-size: 8.5pt; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 9.5pt; page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  th { background: #efebe2; text-align: left; padding: 6px 8px; border-bottom: 1.5px solid var(--line); }
+  td { padding: 6px 8px; border-bottom: 1px solid #ece8de; vertical-align: top; }
+  td.id { white-space: nowrap; font-weight: 700; width: 58px; }
+  .pill { display:inline-block; font-size: 8pt; font-weight:700; padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
+  .done { background:#DDF3E2; color:#1d6b33; }
+  .test { background:#FFF1B8; color:#7a6000; }
+  .plan { background:#e6e6e6; color:#555; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .box { border:1px solid var(--line); border-radius: 10px; padding: 10px 12px; page-break-inside: avoid; }
+  .box h3 { margin-top: 0; }
+  ul { margin: 4px 0 8px; padding-left: 18px; }
+  li { margin: 2px 0; }
+  .yes { color:#1d6b33; font-weight:700; } .no { color:#a33; font-weight:700; } .part { color:#7a6000; font-weight:700; }
+  .page-break { page-break-before: always; }
+
+  /* ---------- Low-fidelity wireframes (grayscale on purpose) ---------- */
+  .wires { display:grid; grid-template-columns: repeat(3, 1fr); gap: 14px 12px; margin-top: 8px; }
+  .wf { page-break-inside: avoid; }
+  .phone { border: 2px solid #333; border-radius: 18px; height: 330px; padding: 10px 9px 8px; position: relative; background: #fff; overflow: hidden; }
+  .cap { font-size: 9pt; font-weight: 700; margin-top: 6px; text-align:center; }
+  .cap span { display:block; font-weight: 400; color: var(--muted); font-size: 8.3pt; }
+  .r { display:flex; align-items:center; gap:5px; }
+  .sp { flex: 1; }
+  .bar { height: 6px; background: #bdbdbd; border-radius: 3px; }
+  .t1 { height: 10px; width: 55%; background:#555; border-radius: 3px; }
+  .t2 { height: 6px; background:#c4c4c4; border-radius: 3px; margin-top: 4px; }
+  .circ { width: 20px; height: 20px; border: 1.5px solid #555; border-radius: 50%; flex: none; }
+  .circ.f { background:#555; }
+  .blk { border: 1.5px solid #888; border-radius: 6px; background: repeating-linear-gradient(45deg,#f2f2f2 0 5px,#e4e4e4 5px 10px); }
+  .card { border: 1.5px solid #888; border-radius: 8px; padding: 6px; }
+  .nav { position:absolute; left: 9px; right: 9px; bottom: 8px; height: 26px; border: 1.5px solid #555; border-radius: 13px; display:flex; align-items:center; justify-content: space-around; }
+  .nav i { width: 26px; height: 6px; background:#bbb; border-radius: 3px; }
+  .nav i.on { background:#555; width: 34px; height: 14px; border-radius: 7px; }
+  .lbl { font-size: 7pt; color: #555; font-family: Consolas, monospace; }
+  .btn { border: 1.5px solid #555; border-radius: 8px; height: 22px; display:flex; align-items:center; justify-content:center; font-size: 7.5pt; color:#333; }
+  .btn.f { background:#555; color:#fff; }
+  .shelf { height: 4px; background:#777; margin: 3px 0 6px; border-radius: 2px; }
+  .page { border: 1.5px solid #888; height: 210px; border-radius: 3px; padding: 8px 7px; }
+  .ln { height: 4px; background:#d0d0d0; margin: 5px 0; border-radius: 2px; }
+  .hl { background: #9e9e9e; }
+  .menu { position:absolute; left: 22px; right: 22px; top: 92px; border: 1.5px solid #333; border-radius: 8px; background:#fff; padding: 5px; }
+  .anno { font-size: 8pt; color: var(--muted); margin: 2px 0 0; }
+  .src { font-size: 8.5pt; color: var(--muted); }
+  .src a { color: var(--muted); }
+</style>
+<style>
+  body { font-family: "Times New Roman", Georgia, serif; font-size: 11.5pt; line-height: 1.55; text-align: justify; }
+  h1 { font-size: 20pt; text-align: center; margin: 0; }
+  h2 { font-family: "Times New Roman", Georgia, serif; font-size: 13.5pt; border-left: none; padding-left: 0; margin: 18px 0 6px; }
+  h3 { font-family: "Times New Roman", Georgia, serif; font-size: 11.5pt; font-style: italic; }
+  table { font-family: "Times New Roman", Georgia, serif; font-size: 10.5pt; }
+  th { background: #f1f1f1; }
+  .title-block { text-align: center; margin-bottom: 14px; }
+  .title-block p { margin: 2px 0; text-align: center; }
+  .abstract { border-top: 1px solid #999; border-bottom: 1px solid #999; padding: 8px 4px; margin: 10px 0 6px; font-size: 10.5pt; }
+  .caption { text-align: center; font-size: 9.5pt; font-style: italic; margin: 2px 0 10px; }
+  .refs p { text-indent: -18px; padding-left: 18px; font-size: 10pt; margin: 2px 0; text-align: left; }
+  .cap, .anno, .lbl { font-family: "Segoe UI", Arial, sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="title-block">
+  <h1>QuickStudy: An Arabic-First Mobile Application for Reading and Studying Lecture Material</h1>
+  <p class="muted">Requirements and Design Report · October 2026</p>
+</div>
+
+<div class="abstract"><b>Abstract.</b> This report presents QuickStudy, an Android application that combines a PDF reader with study tools for Arabic-speaking university students. It defines the problem and the proposed solution, specifies the functional and non-functional requirements, compares the application with two existing products (Quizlet and Knowt), and presents low-fidelity wireframes of the main screens.</div>
+
+<h2>1. Introduction</h2>
+<h3>1.1 Problem Statement</h3>
+<p>University students commonly study from PDF lecture slides and scanned textbooks. Reading, annotating and self-testing are usually done in separate applications. Existing study platforms are designed primarily for English and offer limited support for Arabic text, right-to-left (RTL) layouts and scanned Arabic documents.</p>
+<h3>1.2 Proposed Solution</h3>
+<p>QuickStudy integrates the full study cycle in one application: <i>upload, read and annotate, organise by subject, and review</i>. The reader supports notes, highlights and on-device optical character recognition (OCR) for scanned pages. Course files are organised into subjects and chapters, each linked to flashcards and quizzes. A later phase will generate study material automatically using artificial intelligence (AI) through a secure proxy server.</p>
+<h3>1.3 Scope and Target Users</h3>
+<p>The system targets Arabic-speaking students using Android phones. It operates offline and stores all files locally. Collaborative features and community-shared content are out of scope.</p>
+
+<h2>2. Functional Requirements</h2>
+<table>
+  <tr><th>ID</th><th>Requirement</th></tr>
+  <tr><td class="id">FR-1</td><td>The system shall allow the user to upload PDF and image files and store them locally.</td></tr>
+  <tr><td class="id">FR-2</td><td>The system shall display library books on shelves with cover previews and reading progress.</td></tr>
+  <tr><td class="id">FR-3</td><td>The system shall open a document at the last page read, in vertical or horizontal reading mode, with zoom.</td></tr>
+  <tr><td class="id">FR-4</td><td>The system shall allow the user to add typed notes, highlights and bookmarks to a document.</td></tr>
+  <tr><td class="id">FR-5</td><td>The system shall apply OCR to scanned pages so that their text can be selected.</td></tr>
+  <tr><td class="id">FR-6</td><td>The system shall provide reading settings: brightness, margins, paper colour and night mode.</td></tr>
+  <tr><td class="id">FR-7</td><td>The system shall allow the user to create, edit and delete subjects.</td></tr>
+  <tr><td class="id">FR-8</td><td>The system shall allow the user to add, rename, reorder and delete chapters within a subject.</td></tr>
+  <tr><td class="id">FR-9</td><td>The system shall keep study files separate from library files.</td></tr>
+  <tr><td class="id">FR-10</td><td>The system shall provide flashcard and quiz modes for each chapter.</td></tr>
+  <tr><td class="id">FR-11</td><td>The system shall support Arabic and English interfaces and light and dark themes.</td></tr>
+  <tr><td class="id">FR-12</td><td>The system shall generate summaries, flashcards and quizzes from a chapter using AI <i>(future phase)</i>.</td></tr>
+</table>
+
+<h2>3. Non-Functional Requirements</h2>
+<table>
+  <tr><th>ID</th><th>Category</th><th>Requirement</th></tr>
+  <tr><td class="id">NFR-1</td><td>Performance</td><td>A page shall render within one second on a mid-range device, and heavy processing shall run in the background.</td></tr>
+  <tr><td class="id">NFR-2</td><td>Availability</td><td>All features except AI generation shall work offline.</td></tr>
+  <tr><td class="id">NFR-3</td><td>Privacy and Security</td><td>User files shall remain on the device, and no secret API key shall be embedded in the application.</td></tr>
+  <tr><td class="id">NFR-4</td><td>Localization</td><td>The interface shall fully support Arabic, including RTL layout and Arabic plural forms.</td></tr>
+  <tr><td class="id">NFR-5</td><td>Usability and Accessibility</td><td>Touch targets shall be at least 44 px, and every screen shall define loading, empty and error states.</td></tr>
+  <tr><td class="id">NFR-6</td><td>Reliability</td><td>Database upgrades shall preserve existing user data.</td></tr>
+  <tr><td class="id">NFR-7</td><td>Maintainability</td><td>The code shall follow the Model–View–ViewModel (MVVM) architecture with one-way data flow.</td></tr>
+</table>
+
+<h2 class="page-break">4. Comparative Analysis</h2>
+<p><b>Quizlet</b> is a widely used flashcard platform with a large library of shared study sets and an AI tutor available to paid subscribers. It does not include a document reader, and its Arabic support is limited.</p>
+<p><b>Knowt</b> generates notes, flashcards and practice tests from uploaded files using AI. Files are processed in the cloud, and AI usage is limited on the free plan.</p>
+<table>
+  <tr><th>Criterion</th><th>QuickStudy</th><th>Quizlet</th><th>Knowt</th></tr>
+  <tr><td>Integrated PDF reader with annotation</td><td>Yes</td><td>No</td><td>Limited</td></tr>
+  <tr><td>OCR for scanned pages</td><td>On device</td><td>No</td><td>Cloud</td></tr>
+  <tr><td>Full Arabic and RTL support</td><td>Yes</td><td>Partial</td><td>Partial</td></tr>
+  <tr><td>AI generation from user files</td><td>Planned</td><td>Paid tier</td><td>Yes</td></tr>
+  <tr><td>Offline use and local storage</td><td>Yes</td><td>Partial</td><td>Partial</td></tr>
+  <tr><td>Shared community content</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+</table>
+<p class="caption">Table 1. Feature comparison of QuickStudy and two competing applications.</p>
+<p>QuickStudy is distinguished by its integrated reader, its Arabic support and its local storage of user files. AI-based generation of study material is required to match the main capability of both competitors.</p>
+
+<h2>5. Low-Fidelity Wireframes</h2>
+<p>Figure 1 presents grayscale wireframes of the six main screens. They show layout and hierarchy only.</p>
+<div class="wires">
+  <!-- 1. Home / file manager -->
+  <div class="wf">
+    <div class="phone">
+      <div class="r"><div style="flex:1"><div class="t2" style="width:40%"></div><div class="t1" style="margin-top:4px"></div></div><div class="circ"></div><div class="circ f"></div></div>
+      <div class="card" style="margin-top:10px"><div class="t2" style="width:50%;margin:0"></div><div class="bar" style="margin-top:7px"></div><div class="lbl" style="margin-top:4px">storage: PDF / images</div></div>
+      <div class="btn" style="margin-top:8px;justify-content:flex-start;padding-left:8px">⌕ search</div>
+      <div class="r" style="margin-top:6px;gap:4px"><div class="btn f" style="flex:1">All</div><div class="btn" style="flex:1">PDF</div><div class="btn" style="flex:1">Images</div></div>
+      <div class="lbl" style="margin-top:8px">TODAY</div>
+      <div class="r card" style="margin-top:3px"><div class="blk" style="width:26px;height:32px"></div><div style="flex:1"><div class="t2" style="width:80%;margin:0"></div><div class="t2" style="width:40%"></div></div></div>
+      <div class="r card" style="margin-top:5px"><div class="blk" style="width:26px;height:32px"></div><div style="flex:1"><div class="t2" style="width:70%;margin:0"></div><div class="t2" style="width:35%"></div></div></div>
+      <div class="nav"><i class="on"></i><i></i><i></i></div>
+    </div>
+    <div class="cap">Home (files)<span>Upload, storage, search, filter, swipe to delete</span></div>
+  </div>
+
+  <!-- 2. Library shelves -->
+  <div class="wf">
+    <div class="phone">
+      <div class="r"><div style="flex:1"><div class="t2" style="width:35%"></div><div class="t1" style="margin-top:4px;width:60%;height:14px"></div></div><div class="circ"></div><div class="circ f"></div></div>
+      <div class="card r" style="margin-top:10px"><div class="blk" style="width:34px;height:46px"></div><div style="flex:1"><div class="lbl">CONTINUE READING</div><div class="t2" style="width:80%"></div><div class="bar" style="margin-top:6px;width:60%"></div></div></div>
+      <div class="lbl" style="margin-top:8px">SHELF</div>
+      <div class="r" style="gap:6px;margin-top:3px;align-items:flex-end"><div class="blk" style="flex:1;height:58px"></div><div class="blk" style="flex:1;height:58px"></div><div class="blk" style="flex:1;height:58px"></div></div>
+      <div class="shelf"></div>
+      <div class="r" style="gap:6px"><div class="t2" style="flex:1;margin:0"></div><div class="t2" style="flex:1;margin:0"></div><div class="t2" style="flex:1;margin:0"></div></div>
+      <div class="lbl" style="margin-top:8px">BOOKMARKS</div>
+      <div class="r" style="margin-top:3px"><div class="blk" style="width:16px;height:22px"></div><div style="flex:1"><div class="t2" style="width:70%;margin:0"></div><div class="t2 hl" style="width:85%"></div></div></div>
+      <div class="nav"><i></i><i></i><i class="on"></i></div>
+    </div>
+    <div class="cap">Library (shelves)<span>Covers + progress, continue reading, bookmarks</span></div>
+  </div>
+
+  <!-- 3. Study subjects -->
+  <div class="wf">
+    <div class="phone">
+      <div class="r"><div style="flex:1"><div class="t2" style="width:40%"></div><div class="t1" style="margin-top:4px"></div></div><div class="circ"></div><div class="circ f"></div></div>
+      <div class="r" style="gap:7px;margin-top:12px">
+        <div class="card" style="flex:1"><div class="blk" style="height:62px;display:flex;align-items:flex-end;padding:3px 6px;font-weight:800;font-size:16pt;color:#555">M</div><div class="t2" style="width:80%"></div><div class="t2" style="width:45%"></div></div>
+        <div class="card" style="flex:1"><div class="blk" style="height:62px;display:flex;align-items:flex-end;padding:3px 6px;font-weight:800;font-size:16pt;color:#555">D</div><div class="t2" style="width:70%"></div><div class="t2" style="width:40%"></div></div>
+      </div>
+      <div class="r" style="gap:7px;margin-top:7px">
+        <div class="card" style="flex:1"><div class="blk" style="height:62px;display:flex;align-items:flex-end;padding:3px 6px;font-weight:800;font-size:16pt;color:#555">P</div><div class="t2" style="width:75%"></div><div class="t2" style="width:40%"></div></div>
+        <div style="flex:1;border:1.5px dashed #999;border-radius:8px;height:96px;display:flex;align-items:center;justify-content:center;color:#888;font-size:16pt">+</div>
+      </div>
+      <p class="anno">Tile = subject colour + first letter, name, chapter count. Long-press: edit / delete.</p>
+      <div class="nav"><i></i><i class="on"></i><i></i></div>
+    </div>
+    <div class="cap">Study (subjects)<span>Subjects work like folders</span></div>
+  </div>
+
+  <!-- 4. Subject chapters -->
+  <div class="wf">
+    <div class="phone">
+      <div class="r"><div class="circ"></div><div class="sp"></div><div class="circ"></div></div>
+      <div class="r" style="margin-top:10px"><div class="blk" style="width:38px;height:38px"></div><div style="flex:1"><div class="t1" style="width:70%"></div><div class="t2" style="width:35%"></div></div></div>
+      <div style="margin-top:10px"></div>
+      <div class="r card" style="margin-top:5px"><div class="blk" style="width:22px;height:30px"></div><div style="flex:1"><div class="lbl">CHAPTER 1</div><div class="t2" style="width:85%;margin-top:2px"></div><div class="lbl">✓ finished</div></div><div class="lbl">⋮ ⠿</div></div>
+      <div class="r card" style="margin-top:5px"><div class="blk" style="width:22px;height:30px"></div><div style="flex:1"><div class="lbl">CHAPTER 2</div><div class="t2" style="width:75%;margin-top:2px"></div><div class="lbl">page 12 of 40</div></div><div class="lbl">⋮ ⠿</div></div>
+      <div class="r card" style="margin-top:5px"><div class="blk" style="width:22px;height:30px"></div><div style="flex:1"><div class="lbl">CHAPTER 3</div><div class="t2" style="width:80%;margin-top:2px"></div><div class="lbl">not started</div></div><div class="lbl">⋮ ⠿</div></div>
+      <div class="btn" style="position:absolute;left:40px;right:40px;bottom:12px;background:#ddd">+ Add chapter</div>
+    </div>
+    <div class="cap">Subject (chapters)<span>Same-height rows, drag to reorder, status line</span></div>
+  </div>
+
+  <!-- 5. Chapter -->
+  <div class="wf">
+    <div class="phone">
+      <div class="circ"></div>
+      <div class="lbl" style="margin-top:10px">SUBJECT · CHAPTER 2</div>
+      <div class="t1" style="width:80%;height:13px;margin-top:4px"></div>
+      <div class="card r" style="margin-top:12px;background:#555;border-color:#555"><div class="blk" style="width:36px;height:50px"></div><div style="flex:1"><div class="t2" style="width:40%;background:#eee;margin:0"></div><div class="t2" style="width:60%;background:#999"></div><div class="bar" style="margin-top:6px;background:#bbb"></div></div><div style="color:#fff">→</div></div>
+      <div class="r card" style="margin-top:8px"><div class="circ"></div><div style="flex:1"><div class="t2" style="width:40%;margin:0"></div><div class="t2" style="width:60%"></div></div><div class="lbl">SOON</div></div>
+      <div class="r card" style="margin-top:6px"><div class="circ"></div><div style="flex:1"><div class="t2" style="width:45%;margin:0"></div><div class="t2" style="width:35%"></div></div><div class="lbl">→</div></div>
+      <div class="r card" style="margin-top:6px"><div class="circ"></div><div style="flex:1"><div class="t2" style="width:35%;margin:0"></div><div class="t2" style="width:40%"></div></div><div class="lbl">→</div></div>
+      <div class="lbl" style="margin-top:6px">Read · Chat · Flashcards · Quiz</div>
+    </div>
+    <div class="cap">Chapter<span>One featured action (Read), then study modes</span></div>
+  </div>
+
+  <!-- 6. Reader with selection -->
+  <div class="wf">
+    <div class="phone">
+      <div class="r"><div class="circ"></div><div class="sp"></div><div class="lbl">12 / 40</div><div class="sp"></div><div class="circ"></div><div class="circ"></div></div>
+      <div class="page" style="margin-top:8px">
+        <div class="ln" style="width:60%;height:6px;background:#999"></div>
+        <div class="ln"></div><div class="ln"></div><div class="ln hl" style="width:70%"></div><div class="ln"></div><div class="ln" style="width:80%"></div>
+        <div class="ln"></div><div class="ln"></div><div class="ln" style="width:55%"></div>
+        <div style="border:1px dashed #777;width:60%;height:18px;margin-top:8px;font-size:7pt;color:#555;padding:2px 4px">typed note…</div>
+        <div class="ln"></div><div class="ln" style="width:75%"></div>
+      </div>
+      <div class="menu">
+        <div class="r" style="gap:3px"><div class="circ f" style="width:14px;height:14px"></div><div class="circ" style="width:14px;height:14px"></div><div class="circ" style="width:14px;height:14px"></div><div class="circ" style="width:14px;height:14px"></div><div class="sp"></div><div class="lbl">5 colours</div></div>
+        <div class="lbl" style="margin-top:4px">copy · note · bookmark · more</div>
+      </div>
+      <div class="r" style="position:absolute;bottom:10px;right:10px;gap:4px"><div class="circ f"></div><div class="circ f"></div></div>
+    </div>
+    <div class="cap">Reader<span>Highlight menu, typed note, zoom buttons</span></div>
+  </div>
+
+</div>
+<p class="caption">Figure 1. Low-fidelity wireframes of the main screens (LTR layout; the Arabic layout is mirrored).</p>
+
+<h2>6. Conclusion</h2>
+<p>QuickStudy addresses the separation between reading and studying, and the limited Arabic support in current study applications. The core reading and organisation features are implemented. Future work will add AI-generated study material through a secure server, and an evaluation with student users.</p>
+
+<h2>References</h2>
+<div class="refs">
+<p>[1] Fritz AI. “Knowt AI Review.” fritz.ai/knowt-ai-review. Accessed Oct. 2026.</p>
+<p>[2] Toolradar. “Knowt vs Quizlet.” toolradar.com/compare/knowt-vs-quizlet. Accessed Oct. 2026.</p>
+<p>[3] FrontDesk Review. “Quizlet: AI Study Tools Pricing.” frontdeskreview.com/software/ai-study-tools/quizlet. Accessed Oct. 2026.</p>
+<p>[4] Flutter Team. “Guide to App Architecture.” docs.flutter.dev/app-architecture. Accessed Oct. 2026.</p>
+</div>
+</body>
+</html>

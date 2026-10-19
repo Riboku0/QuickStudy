@@ -5,7 +5,8 @@ import '../themes/app_theme.dart';
 import 'app_icon.dart';
 
 // primary: أسود · accent: أصفر (الإجراء الأهم) · secondary: أبيض بحد خفيف
-enum AppButtonKind { primary, accent, secondary }
+// gold: زر الصفحات الورقية (ذهبي نهارًا، أصفر خفيف ليلًا)
+enum AppButtonKind { primary, accent, secondary, gold }
 
 class AppButton extends StatelessWidget {
   const AppButton({
@@ -31,6 +32,9 @@ class AppButton extends StatelessWidget {
       AppButtonKind.primary => (AppColors.ink, AppColors.surface),
       AppButtonKind.accent => (AppColors.accentSoft, AppColors.onAccentSoft),
       AppButtonKind.secondary => (AppColors.surface, AppColors.ink),
+      AppButtonKind.gold => AppColors.isDark
+          ? (AppColors.accentSoft, AppColors.onAccentSoft)
+          : (const Color(0xFF9C7F52), Colors.white),
     };
 
     final style = FilledButton.styleFrom(

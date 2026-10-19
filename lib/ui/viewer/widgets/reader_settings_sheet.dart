@@ -42,7 +42,6 @@ class ReaderSettingsSheet extends StatelessWidget {
     );
   }
 
-  static const Color _yellow = Color(0xFFFFD84D);
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +53,10 @@ class ReaderSettingsSheet extends StatelessWidget {
       builder: (context, _) {
         final r = repository.settings;
         void set(ReaderSettings value) => repository.update(value);
-        final c = ReaderChrome(dark: r.nightMode || r.background.isDark);
+        final c = ReaderChrome(
+          dark: r.nightMode || r.background.isDark,
+          paper: r.background.color,
+        );
         final labelStyle = TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
@@ -107,10 +109,10 @@ class ReaderSettingsSheet extends StatelessWidget {
                       Expanded(
                         child: SliderTheme(
                           data: SliderTheme.of(context).copyWith(
-                            activeTrackColor: _yellow,
+                            activeTrackColor: c.strong,
                             inactiveTrackColor: c.chip,
-                            thumbColor: c.ink,
-                            overlayColor: _yellow.withValues(alpha: 0.25),
+                            thumbColor: c.strong,
+                            overlayColor: c.accent,
                             trackHeight: 6,
                           ),
                           child: Slider(

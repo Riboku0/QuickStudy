@@ -28,11 +28,10 @@ class SubjectViewModel extends ChangeNotifier {
     _subjects.addListener(notifyListeners);
     _lectures.addListener(notifyListeners);
     _progress.addListener(notifyListeners);
-    addExisting = Command1<void, int>(_addExisting);
     uploadNew = Command0<ImportSummary>(_uploadNew);
     rename = Command1<void, (Chapter, String)>(_rename);
     remove = Command1<void, Chapter>(_remove);
-    updateSubject = Command1<void, (String, int)>(_updateSubject);
+    updateSubject = Command1<void, SubjectDraft>(_updateSubject);
     deleteSubject = Command0<void>(_deleteSubject);
   }
 
@@ -42,11 +41,10 @@ class SubjectViewModel extends ChangeNotifier {
   final ReadingProgressRepository _progress;
   final FilePickerService _picker;
 
-  late final Command1<void, int> addExisting;
   late final Command0<ImportSummary> uploadNew;
   late final Command1<void, (Chapter, String)> rename;
   late final Command1<void, Chapter> remove;
-  late final Command1<void, (String, int)> updateSubject;
+  late final Command1<void, SubjectDraft> updateSubject;
   late final Command0<void> deleteSubject;
 
   Subject? get subject => _subjects.subject(subjectId);
@@ -62,41 +60,27 @@ class SubjectViewModel extends ChangeNotifier {
     ];
   }
 
-  // ملفات PDF التي ليست في أي مادة
-  List<Lecture> get availablePdfs {
-    final taken = _subjects.assignedLectureIds;
-    return [
-      for (final l in _lectures.lectures)
-        if (l.isPdf && l.exists && !taken.contains(l.id)) l,
-    ];
-  }
-
   void reorder(int oldIndex, int newIndex) {
     final ids = [for (final item in chapters) item.chapter.id];
-    if (newIndex > oldIndex) newIndex--;
     ids.insert(newIndex, ids.removeAt(oldIndex));
     _subjects.reorder(subjectId, ids);
   }
 
-  Future<Result<void>> _addExisting(int lectureId) =>
-      _subjects.addChapters(subjectId, [lectureId]);
-
+  // الرفع من هنا يحفظ الملف كملف مذاكرة (لا يظهر في المكتبة) ويضيفه للمادة
   Future<Result<ImportSummary>> _uploadNew() async {
     try {
       final picked =
-          await _picker.pickLectureFiles(extensions: FilePickerService.pdfOnly);
+          await _picker.pickLectureFiles(extensions: FilePickerService.books);
       if (picked.isEmpty) return const Result.ok(ImportSummary.none);
 
-      final imported = await _lectures.importFiles(picked);
+      final ids = <int>[];
+      final imported = await _lectures.importFiles(
+        picked,
+        origin: LectureOrigin.study,
+        ids: ids,
+      );
       if (imported is Err<ImportSummary>) return imported;
 
-      // الجديدة والمكررة (موجودة في الملفات بنفس الاسم) تدخل المادة إن لم تكن في مادة
-      final names = {for (final f in picked) f.name};
-      final taken = _subjects.assignedLectureIds;
-      final ids = [
-        for (final l in _lectures.lectures.reversed)
-          if (l.isPdf && names.contains(l.name) && !taken.contains(l.id)) l.id,
-      ];
       final added = await _subjects.addChapters(subjectId, ids);
       if (added is Err<void>) return Result.error(added.error);
 
@@ -112,8 +96,11 @@ class SubjectViewModel extends ChangeNotifier {
   Future<Result<void>> _remove(Chapter chapter) =>
       _subjects.removeChapter(chapter.id);
 
-  Future<Result<void>> _updateSubject((String, int) input) =>
-      _subjects.updateSubject(subjectId, input.$1, input.$2);
+  // صورة غلاف من الهاتف (لنافذة تعديل المادة)
+  Future<String?> pickCoverImage() => _picker.pickImage();
+
+  Future<Result<void>> _updateSubject(SubjectDraft draft) =>
+      _subjects.updateSubject(subjectId, draft);
 
   Future<Result<void>> _deleteSubject() => _subjects.deleteSubject(subjectId);
 
@@ -122,7 +109,6 @@ class SubjectViewModel extends ChangeNotifier {
     _subjects.removeListener(notifyListeners);
     _lectures.removeListener(notifyListeners);
     _progress.removeListener(notifyListeners);
-    addExisting.dispose();
     uploadNew.dispose();
     rename.dispose();
     remove.dispose();

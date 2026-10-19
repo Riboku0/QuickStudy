@@ -14,7 +14,16 @@ abstract class LectureRepository extends ChangeNotifier {
 
   Future<Result<void>> load();
 
-  Future<Result<ImportSummary>> importFiles(List<SelectedFile> files);
+  // origin: المكتبة أو المذاكرة. التكرار يُفحص داخل المكان نفسه فقط.
+  // ids: يُملأ بأرقام الملفات الجديدة (لربطها بمادة بعد الرفع)
+  Future<Result<ImportSummary>> importFiles(
+    List<SelectedFile> files, {
+    LectureOrigin origin = LectureOrigin.library,
+    List<int>? ids,
+  });
 
   Future<Result<void>> delete(Lecture lecture);
+
+  // تصنيف كتاب المكتبة، أو null لإزالته
+  Future<Result<void>> setCategory(Lecture lecture, String? category);
 }

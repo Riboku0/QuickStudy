@@ -1,24 +1,35 @@
-// مادة دراسية (مثل مجلد): لها اسم ولون، وشباترها خاصة بها
+// مادة دراسية: اسم وأيقونة وصورة غلاف اختيارية، وشباترها خاصة بها
 class Subject {
-  const Subject({required this.id, required this.name, required this.color});
+  const Subject({
+    required this.id,
+    required this.name,
+    this.icon,
+    this.coverPath,
+  });
 
   final int id;
   final String name;
-  final int color; // رقم اللون في SubjectColors
-
-  // أول حرف للغلاف
-  String get initial {
-    final trimmed = name.trim();
-    return trimmed.isEmpty ? '?' : String.fromCharCode(trimmed.runes.first);
-  }
+  final String? icon; // مفتاح في SubjectIcons
+  final String? coverPath; // صورة الغلاف داخل مجلد التطبيق
 
   factory Subject.fromMap(Map<String, Object?> map) {
     return Subject(
       id: map['id'] as int,
       name: map['name'] as String,
-      color: map['color'] as int,
+      icon: map['icon'] as String?,
+      coverPath: map['coverPath'] as String?,
     );
   }
+}
+
+// ما يدخله المستخدم عند إنشاء مادة أو تعديلها.
+// cover: مسار صورة مختارة من الهاتف، أو مسار الغلاف الحالي، أو null بلا غلاف.
+class SubjectDraft {
+  const SubjectDraft({required this.name, this.icon, this.cover});
+
+  final String name;
+  final String? icon;
+  final String? cover;
 }
 
 // شابتر = ملف PDF من المكتبة داخل مادة واحدة

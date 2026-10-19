@@ -1,18 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'config/dependencies.dart';
 import 'data/repositories/settings/settings_repository.dart';
 import 'ui/core/themes/app_theme.dart';
+import 'ui/core/themes/study_tone.dart';
 import 'ui/shell/app_shell.dart';
 
 void main() {
-  runApp(
-    MultiProvider(
-      providers: appProviders,
-      child: const QuickStudyApp(),
-    ),
+  WidgetsFlutterBinding.ensureInitialized();
+  // إخفاء شريط الإشعارات العلوي داخل التطبيق (يظهر مؤقتًا بالسحب من الأعلى)،
+  // وأزرار التنقل السفلية للنظام تبقى ظاهرة
+  hideStatusBar();
+  SystemChrome.setSystemUIChangeCallback((visible) async {
+    if (visible) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      hideStatusBar();
+    }
+  });
+  runApp(MultiProvider(providers: appProviders, child: const QuickStudyApp()));
+}
+
+void hideStatusBar() {
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: [SystemUiOverlay.bottom],
   );
 }
 
@@ -30,6 +44,7 @@ class _QuickStudyAppState extends State<QuickStudyApp>
 
   ThemeData? _theme;
   Brightness? _builtFor;
+  AppAccent? _builtAccent;
 
   @override
   void initState() {
@@ -49,6 +64,12 @@ class _QuickStudyAppState extends State<QuickStudyApp>
   // تغيّر وضع الهاتف (فاتح/داكن) أثناء فتح التطبيق
   @override
   void didChangePlatformBrightness() => _onSettingsChanged();
+
+  // يعود الشريط العلوي عند الرجوع للتطبيق من الخلفية، فنخفيه من جديد
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) hideStatusBar();
+  }
 
   void _onSettingsChanged() {
     if (!mounted) return;
@@ -91,7 +112,8 @@ class _QuickStudyAppState extends State<QuickStudyApp>
     // لا نعرض شيئًا حتى تُقرأ الإعدادات (جزء من الثانية)،
     // حتى لا يظهر الوضع الفاتح لحظة ثم يتحول للداكن
     if (!_settings.isLoaded) {
-      final dark = WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+      final dark =
+          WidgetsBinding.instance.platformDispatcher.platformBrightness ==
           Brightness.dark;
       return ColoredBox(
         color: dark ? AppPalette.dark.background : AppPalette.light.background,
@@ -99,12 +121,17 @@ class _QuickStudyAppState extends State<QuickStudyApp>
     }
 
     final brightness = _brightness();
-    if (_theme == null || _builtFor != brightness) {
+    // الثيم (لون التطبيق) قبل بناء الشجرة، مثل AppColors.use
+    StudyTone.use(_settings.accent);
+    if (_theme == null ||
+        _builtFor != brightness ||
+        _builtAccent != _settings.accent) {
       AppColors.use(
         brightness == Brightness.dark ? AppPalette.dark : AppPalette.light,
       );
       _theme = AppTheme.build();
       _builtFor = brightness;
+      _builtAccent = _settings.accent;
     }
 
     return MaterialApp(

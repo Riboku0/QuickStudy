@@ -2,27 +2,75 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/repositories/progress/reading_progress_repository.dart';
+import '../data/repositories/stats/reading_stats_repository.dart';
 import '../domain/models/lecture.dart';
 import '../domain/models/study_deck.dart';
 import '../ui/core/themes/app_theme.dart';
+import '../ui/home/view_models/add_book_view_model.dart';
+import '../ui/home/widgets/add_book_screen.dart';
 import '../ui/settings/widgets/settings_screen.dart';
+import '../ui/study/widgets/chapter_screen.dart';
 import '../ui/study/widgets/flashcards_screen.dart';
 import '../ui/study/widgets/quiz_screen.dart';
+import '../ui/study/widgets/subject_screen.dart';
 import '../ui/viewer/widgets/document_viewer_screen.dart';
+import '../ui/viewer/widgets/epub_reader_screen.dart';
 
 // كل الانتقالات بين الشاشات في مكان واحد.
 // تنقل بسيط (push/pop) لأن التطبيق لا يحتاج روابط عميقة أو نسخة ويب.
 abstract final class AppNavigator {
+
+  // نموذج إضافة كتاب للمكتبة. category: التصنيف المفتوح حاليًا يُختار مسبقًا
+  static Future<void> openAddBook(BuildContext context, {String? category}) {
+    final viewModel = AddBookViewModel(
+      lectures: context.read(),
+      picker: context.read(),
+      settings: context.read(),
+      initialCategory: category,
+    );
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AddBookScreen(viewModel: viewModel),
+      ),
+    );
+  }
   // page: فتح صفحة محددة (من علامة مرجعية) بدل آخر صفحة مقروءة
   static Future<void> openDocument(
     BuildContext context,
     Lecture lecture, {
     int? page,
-  }) {
+  }) async {
+    // كتب EPUB لها قارئ خاص: يحفظ مكانه بنفسه، والتقدم نسبة من 100
+    if (lecture.isEpub) {
+      final progress = context.read<ReadingProgressRepository>();
+      final stats = context.read<ReadingStatsRepository>();
+      final watch = Stopwatch()..start();
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => Theme(
+            data: AppTheme.lightOnly(),
+            child: EpubReaderScreen(
+              lectureId: lecture.id,
+              title: lecture.title,
+              filePath: lecture.filePath,
+              onProgress: (f) =>
+                  progress.record(lecture.id, 1 + (f * 99).round(), 100),
+            ),
+          ),
+        ),
+      );
+      watch.stop();
+      await stats.addSession(watch.elapsed);
+      return;
+    }
+
     // ملفات PDF تفتح على آخر صفحة مقروءة، وتسجّل تقدمها
     final progress = lecture.isPdf ? context.read<ReadingProgressRepository>() : null;
+    // وقت القراءة: من فتح العارض حتى الرجوع منه (لأرقام الرئيسية)
+    final stats = context.read<ReadingStatsRepository>();
+    final watch = Stopwatch()..start();
 
-    return Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         // العارض يبقى فاتحًا حتى في الوضع الداكن
         builder: (_) => Theme(
@@ -38,6 +86,24 @@ abstract final class AppNavigator {
                 : (page, count) => progress.record(lecture.id, page, count),
           ),
         ),
+      ),
+    );
+    watch.stop();
+    await stats.addSession(watch.elapsed);
+  }
+
+  static Future<void> openSubject(BuildContext context, int subjectId) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SubjectScreen(subjectId: subjectId),
+      ),
+    );
+  }
+
+  static Future<void> openChapter(BuildContext context, int chapterId) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChapterScreen(chapterId: chapterId),
       ),
     );
   }

@@ -161,11 +161,78 @@ abstract class AppStrings {
 
   // ---- المواد والشباتر ----
   String get subjectsOverline;
+  String get subjectsTitle;
+  String get allSubjects;
+
+  // ---- لوحة الرئيسية ----
+  String get dashboardSubtitle;
+  String get readingToday;
+  String get dayStreak;
+  String get allTime;
+  String get statBooks;
+  String get statFinished;
+  String get statReadingNow;
+  String get statBookmarks;
+  String get statSubjects;
+  String get statChaptersDone;
+  String get statCompletion;
+  String get statReadingTime;
+  String get statPages;
+  String get statSessions;
+  String get statReadingDays;
+  String duration(int seconds);
+  String get studyGreeting;
+  String get studyTagline;
+  String get yourProgress;
+  String get chaptersDone;
+  String get studyQuote;
+
+  // ---- الحساب والمكتبة الجديدة ----
+  String get account;
+  String get appColor;
+  String get defaultLabel;
+  String accentName(String key);
+  String get addYourName;
+  String get yourName;
+  String get accountLocalNote;
+  String get allSettings;
+  String studyGreetingName(String name);
+  String get librarySubtitle;
+  String get recentlyRead;
+  String get allCategories;
+  String categoryPlural(String key);
+  String categoryName(String key);
+  String get bookCategory;
+  String get noCategory;
+  // نموذج إضافة كتاب
+  String get addBookTitle;
+  String get bookFile;
+  String get chooseFile;
+  String get changeFile;
+  String get bookName;
+  String get newCategory;
+  String get categoryNameLabel;
+  String get addToLibrary;
+  String get bookNeedsName;
+  String get bookAdded;
+  String get bookAlreadyAdded;
+  // قارئ EPUB
+  String get tableOfContents;
+  String get textSize;
+  String get noContents;
+  String get noBooksInCategory;
+  String get noBookmarksInBook;
+
   String get newSubject;
   String get editSubject;
   String get subjectName;
   String get subjectNameHint;
-  String get subjectColor;
+  String get subjectIcon;
+  String get coverImage;
+  String get chooseImage;
+  String get changeImage;
+  String get removeImage;
+  String readPercent(int n);
   String get create;
   String get save;
   String get deleteSubjectTitle;
@@ -177,20 +244,18 @@ abstract class AppStrings {
   String get addChapter;
   String get noChaptersTitle;
   String get noChaptersBody;
-  String get uploadNewPdf;
-  String get fromYourFiles;
-  String get noFreePdfs;
   String get renameChapter;
   String get chapterName;
   String get removeFromSubject;
   String get chapterRemoved;
+  String get chapterFinished;
   String get reorder;
   String get studySaveFailed;
   String get readChapter;
   String get readFromStart;
   String get chat;
   String get chatDetail;
-  String get comingSoon;
+  String get soon;
   String get sampleLabel;
   String get sampleChapterNote;
 
@@ -354,7 +419,7 @@ class _En extends AppStrings {
   @override String get resumeReading => 'Continue reading';
   @override String get noPdfsTitle => 'No PDF files yet';
   @override String get noPdfsBody => 'Add your books and lectures as PDF files to read them here.';
-  @override String get addPdf => 'Add PDF';
+  @override String get addPdf => 'Add book';
   @override String get readerSettings => 'Reading settings';
   @override String get brightness => 'Brightness';
   @override String get margins => 'Margins';
@@ -444,37 +509,122 @@ class _En extends AppStrings {
   @override String get nothingYet => 'Nothing yet';
 
   @override String get subjectsOverline => 'YOUR SUBJECTS';
+  @override String get subjectsTitle => 'Subjects';
+  @override String get allSubjects => 'All subjects';
+
+  @override String get dashboardSubtitle => 'Your reading and study in numbers';
+  @override String get readingToday => 'Reading today';
+  @override String get dayStreak => 'Day streak';
+  @override String get allTime => 'All time';
+  @override String get statBooks => 'Books';
+  @override String get statFinished => 'Finished';
+  @override String get statReadingNow => 'Reading now';
+  @override String get statBookmarks => 'Bookmarks';
+  @override String get statSubjects => 'Subjects';
+  @override String get statChaptersDone => 'Chapters done';
+  @override String get statCompletion => 'Completion';
+  @override String get statReadingTime => 'Reading time';
+  @override String get statPages => 'Pages reached';
+  @override String get statSessions => 'Reading sessions';
+  @override String get statReadingDays => 'Reading days';
+  @override String duration(int seconds) {
+    final m = seconds ~/ 60;
+    if (m < 60) return '${m}m';
+    return '${m ~/ 60}h ${(m % 60).toString().padLeft(2, '0')}m';
+  }
+  @override String get studyGreeting => 'Hi there';
+  @override String get studyTagline => 'Ready to get something done today?';
+  @override String get yourProgress => 'Your progress';
+  @override String get chaptersDone => 'chapters done';
+  @override String get studyQuote => 'Discipline today, success tomorrow.';
+
+  @override String get account => 'Account';
+  @override String get defaultLabel => 'Default';
+  @override String get appColor => 'App color';
+  @override String accentName(String key) => switch (key) {
+        'ocean' => 'Ocean',
+        'emerald' => 'Emerald',
+        'rose' => 'Rose',
+        'sunset' => 'Sunset',
+        'graphite' => 'Graphite',
+        _ => 'Violet',
+      };
+  @override String get addYourName => 'Add your name';
+  @override String get yourName => 'Your name';
+  @override String get accountLocalNote => 'Saved on this phone. Google sign-in comes later.';
+  @override String get allSettings => 'All settings';
+  @override String studyGreetingName(String name) => 'Hi, $name';
+  @override String get librarySubtitle => 'Your books, all in one place';
+  @override String get recentlyRead => 'Recently read';
+  @override String get allCategories => 'All';
+  @override String categoryPlural(String key) => switch (key) {
+        'novel' => 'Novels',
+        'study' => 'Studies',
+        'philosophy' => 'Philosophy',
+        'works' => 'Works',
+        _ => key, // تصنيف أضافه المستخدم: يظهر باسمه
+      };
+  @override String categoryName(String key) => switch (key) {
+        'novel' => 'Novel',
+        'study' => 'Study',
+        'philosophy' => 'Philosophy',
+        'works' => 'Work',
+        _ => key, // تصنيف أضافه المستخدم: يظهر باسمه
+      };
+  @override String get bookCategory => 'Category';
+  @override String get noCategory => 'No category';
+  @override String get addBookTitle => 'Add a book';
+  @override String get bookFile => 'File';
+  @override String get chooseFile => 'Choose a PDF or EPUB file';
+  @override String get changeFile => 'Change';
+  @override String get bookName => 'Book name';
+  @override String get newCategory => 'New category';
+  @override String get categoryNameLabel => 'Category name';
+  @override String get addToLibrary => 'Add to library';
+  @override String get bookNeedsName => 'Write a name for the book.';
+  @override String get bookAdded => 'Book added to the library.';
+  @override String get bookAlreadyAdded => 'This book is already in the library.';
+  @override String get tableOfContents => 'Contents';
+  @override String get textSize => 'Text size';
+  @override String get noContents => 'This book has no table of contents.';
+  @override String get noBooksInCategory => 'No books here yet.';
+  @override String get noBookmarksInBook => 'No bookmarks in this book yet. Add one from the reader.';
+
   @override String get newSubject => 'New subject';
   @override String get editSubject => 'Edit subject';
   @override String get subjectName => 'Subject name';
   @override String get subjectNameHint => 'e.g. Machine Learning';
-  @override String get subjectColor => 'Color';
+  @override String get subjectIcon => 'Icon';
+  @override String get coverImage => 'Cover image (optional)';
+  @override String get chooseImage => 'Choose an image';
+  @override String get changeImage => 'Change';
+  @override String get removeImage => 'Remove';
+  @override String readPercent(int n) => '$n% read';
   @override String get create => 'Create';
   @override String get save => 'Save';
   @override String get deleteSubjectTitle => 'Delete this subject?';
   @override String deleteSubjectBody(String name) =>
-      '"$name" and its chapters will be removed from Study. The files stay in Home.';
+      '"$name" and all its chapter files will be deleted.';
   @override String get noSubjectsTitle => 'No subjects yet';
   @override String get noSubjectsBody => 'Create a subject, then add its chapters from your PDF files.';
-  @override String chapters(int n) => _n(n, 'chapter', 'chapters');
+  @override String chapters(int n) =>
+      n == 0 ? 'No chapters yet' : _n(n, 'chapter', 'chapters');
   @override String chapterN(int i) => 'Chapter $i';
   @override String get addChapter => 'Add chapter';
   @override String get noChaptersTitle => 'No chapters yet';
-  @override String get noChaptersBody => 'Add a PDF from your files, or upload a new one.';
-  @override String get uploadNewPdf => 'Upload a new PDF';
-  @override String get fromYourFiles => 'From your files';
-  @override String get noFreePdfs => 'All your PDF files are already in subjects.';
+  @override String get noChaptersBody => 'Upload a PDF for each chapter. These files stay in Study and do not appear in the Library.';
   @override String get renameChapter => 'Rename';
   @override String get chapterName => 'Chapter name';
-  @override String get removeFromSubject => 'Remove from subject';
-  @override String get chapterRemoved => 'Chapter removed. The file is still in Home.';
+  @override String get removeFromSubject => 'Delete chapter';
+  @override String get chapterRemoved => 'Chapter deleted.';
+  @override String get chapterFinished => 'Finished';
   @override String get reorder => 'Reorder';
   @override String get studySaveFailed => "Couldn't save. Try again.";
   @override String get readChapter => 'Read';
   @override String get readFromStart => 'Open the file';
   @override String get chat => 'Chat';
   @override String get chatDetail => 'Ask about this chapter';
-  @override String get comingSoon => 'Soon';
+  @override String get soon => 'Soon';
   @override String get sampleLabel => 'Sample';
   @override String get sampleChapterNote =>
       'Flashcards and quiz are samples for now. Later they will be made from this chapter.';
@@ -640,7 +790,7 @@ class _Ar extends AppStrings {
   @override String get resumeReading => 'تابع القراءة';
   @override String get noPdfsTitle => 'لا توجد ملفات PDF';
   @override String get noPdfsBody => 'أضف كتبك ومحاضراتك بصيغة PDF لتقرأها هنا.';
-  @override String get addPdf => 'إضافة PDF';
+  @override String get addPdf => 'إضافة كتاب';
   @override String get readerSettings => 'إعدادات القراءة';
   @override String get brightness => 'السطوع';
   @override String get margins => 'الهوامش';
@@ -730,37 +880,123 @@ class _Ar extends AppStrings {
   @override String get nothingYet => 'لا شيء بعد';
 
   @override String get subjectsOverline => 'موادك';
+  @override String get subjectsTitle => 'المواد';
+  @override String get allSubjects => 'كل المواد';
+
+  @override String get dashboardSubtitle => 'قراءتك ومذاكرتك بالأرقام';
+  @override String get readingToday => 'قراءتك اليوم';
+  @override String get dayStreak => 'أيام متتالية';
+  @override String get allTime => 'الإجمالي';
+  @override String get statBooks => 'كتب';
+  @override String get statFinished => 'أنهيتها';
+  @override String get statReadingNow => 'تقرؤها الآن';
+  @override String get statBookmarks => 'علامات';
+  @override String get statSubjects => 'مواد';
+  @override String get statChaptersDone => 'شباتر منتهية';
+  @override String get statCompletion => 'نسبة الإنجاز';
+  @override String get statReadingTime => 'وقت القراءة';
+  @override String get statPages => 'صفحات وصلت إليها';
+  @override String get statSessions => 'جلسات قراءة';
+  @override String get statReadingDays => 'أيام قراءة';
+  @override String duration(int seconds) {
+    final m = seconds ~/ 60;
+    if (m < 60) return '$m د';
+    return '${m ~/ 60} س ${m % 60} د';
+  }
+  @override String get studyGreeting => 'أهلًا';
+  @override String get studyTagline => 'جاهز تنجز شيئًا اليوم؟';
+  @override String get yourProgress => 'تقدمك';
+  @override String get chaptersDone => 'شباتر منتهية';
+  @override String get studyQuote => 'انضباط اليوم، نجاح الغد.';
+
+  @override String get account => 'الحساب';
+  @override String get defaultLabel => 'الافتراضي';
+  @override String get appColor => 'لون التطبيق';
+  @override String accentName(String key) => switch (key) {
+        'ocean' => 'أزرق',
+        'emerald' => 'أخضر',
+        'rose' => 'وردي',
+        'sunset' => 'برتقالي',
+        'graphite' => 'رمادي',
+        _ => 'بنفسجي',
+      };
+  @override String get addYourName => 'أضف اسمك';
+  @override String get yourName => 'اسمك';
+  @override String get accountLocalNote => 'محفوظ على هذا الهاتف. الربط بحساب قوقل لاحقًا.';
+  @override String get allSettings => 'كل الإعدادات';
+  @override String studyGreetingName(String name) => 'أهلًا، $name';
+  @override String get librarySubtitle => 'كتبك كلها في مكان واحد';
+  @override String get recentlyRead => 'آخر ما قرأت';
+  @override String get allCategories => 'الكل';
+  @override String categoryPlural(String key) => switch (key) {
+        'novel' => 'روايات',
+        'study' => 'دراسات',
+        'philosophy' => 'فلسفة',
+        'works' => 'مؤلفات',
+        _ => key, // تصنيف أضافه المستخدم: يظهر باسمه
+      };
+  @override String categoryName(String key) => switch (key) {
+        'novel' => 'رواية',
+        'study' => 'دراسة',
+        'philosophy' => 'فلسفة',
+        'works' => 'مؤلَّف',
+        _ => key, // تصنيف أضافه المستخدم: يظهر باسمه
+      };
+  @override String get bookCategory => 'التصنيف';
+  @override String get noCategory => 'بلا تصنيف';
+  @override String get addBookTitle => 'إضافة كتاب';
+  @override String get bookFile => 'الملف';
+  @override String get chooseFile => 'اختر ملف PDF أو EPUB';
+  @override String get changeFile => 'تغيير';
+  @override String get bookName => 'اسم الكتاب';
+  @override String get newCategory => 'تصنيف جديد';
+  @override String get categoryNameLabel => 'اسم التصنيف';
+  @override String get addToLibrary => 'إضافة إلى المكتبة';
+  @override String get bookNeedsName => 'اكتب اسمًا للكتاب.';
+  @override String get bookAdded => 'أُضيف الكتاب إلى المكتبة.';
+  @override String get bookAlreadyAdded => 'هذا الكتاب موجود في المكتبة.';
+  @override String get tableOfContents => 'الفهرس';
+  @override String get textSize => 'حجم الخط';
+  @override String get noContents => 'لا فهرس في هذا الكتاب.';
+  @override String get noBooksInCategory => 'لا كتب هنا بعد.';
+  @override String get noBookmarksInBook => 'لا علامات في هذا الكتاب بعد. أضفها من شاشة القراءة.';
+
   @override String get newSubject => 'مادة جديدة';
   @override String get editSubject => 'تعديل المادة';
   @override String get subjectName => 'اسم المادة';
   @override String get subjectNameHint => 'مثل: تعلم الآلة';
-  @override String get subjectColor => 'اللون';
+  @override String get subjectIcon => 'الأيقونة';
+  @override String get coverImage => 'صورة الغلاف (اختيارية)';
+  @override String get chooseImage => 'اختر صورة';
+  @override String get changeImage => 'تغيير';
+  @override String get removeImage => 'إزالة';
+  // علامة LTR حتى تظهر 4% لا %4 داخل النص العربي
+  @override String readPercent(int n) => 'قرأت ‎$n%';
   @override String get create => 'إنشاء';
   @override String get save => 'حفظ';
   @override String get deleteSubjectTitle => 'حذف هذه المادة؟';
   @override String deleteSubjectBody(String name) =>
-      'ستُحذف "$name" وشباترها من المذاكرة. الملفات تبقى في الرئيسية.';
+      'ستُحذف "$name" وكل ملفات شباترها.';
   @override String get noSubjectsTitle => 'لا توجد مواد بعد';
   @override String get noSubjectsBody => 'أنشئ مادة، ثم أضف شباترها من ملفات PDF.';
-  @override String chapters(int n) => _n(n, 'شابتر واحد', 'شابتران', 'شباتر', 'شابتر');
+  @override String chapters(int n) =>
+      n == 0 ? 'لا شباتر بعد' : _n(n, 'شابتر واحد', 'شابتران', 'شباتر', 'شابتر');
   @override String chapterN(int i) => 'الشابتر $i';
   @override String get addChapter => 'إضافة شابتر';
   @override String get noChaptersTitle => 'لا توجد شباتر بعد';
-  @override String get noChaptersBody => 'أضف ملف PDF من ملفاتك، أو ارفع ملفًا جديدًا.';
-  @override String get uploadNewPdf => 'رفع PDF جديد';
-  @override String get fromYourFiles => 'من ملفاتك';
-  @override String get noFreePdfs => 'كل ملفات PDF موجودة في مواد.';
+  @override String get noChaptersBody => 'ارفع ملف PDF لكل شابتر. ملفات المذاكرة تبقى هنا ولا تظهر في المكتبة.';
   @override String get renameChapter => 'تغيير الاسم';
   @override String get chapterName => 'اسم الشابتر';
-  @override String get removeFromSubject => 'إزالة من المادة';
-  @override String get chapterRemoved => 'أُزيل الشابتر. الملف ما زال في الرئيسية.';
+  @override String get removeFromSubject => 'حذف الشابتر';
+  @override String get chapterRemoved => 'حُذف الشابتر.';
+  @override String get chapterFinished => 'انتهيت منه';
   @override String get reorder => 'تغيير الترتيب';
   @override String get studySaveFailed => 'تعذّر الحفظ. حاول مرة أخرى.';
   @override String get readChapter => 'قراءة';
   @override String get readFromStart => 'افتح الملف';
   @override String get chat => 'محادثة';
   @override String get chatDetail => 'اسأل عن الشابتر';
-  @override String get comingSoon => 'قريبًا';
+  @override String get soon => 'قريبًا';
   @override String get sampleLabel => 'تجريبي';
   @override String get sampleChapterNote =>
       'البطاقات والاختبار تجريبية الآن. لاحقًا تُصنع من الشابتر نفسه.';

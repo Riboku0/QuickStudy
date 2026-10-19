@@ -84,7 +84,8 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
 
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTapUp: (d) => _select(_posFor(d.localPosition.dx, width).round()),
+              onTapUp: (d) =>
+                  _select(_posFor(d.localPosition.dx, width).round()),
               onHorizontalDragStart: (d) => _follow(d.localPosition.dx, width),
               onHorizontalDragUpdate: (d) => _follow(d.localPosition.dx, width),
               onHorizontalDragEnd: (_) => _endDrag(),
@@ -108,8 +109,9 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
                       height: _height,
                       decoration: BoxDecoration(
                         // زجاج أشف: يظهر ما خلفه أكثر
-                        color: AppColors.surface
-                            .withValues(alpha: dark ? 0.48 : 0.38),
+                        color: AppColors.surface.withValues(
+                          alpha: dark ? 0.48 : 0.38,
+                        ),
                         borderRadius: BorderRadius.circular(_height / 2),
                         border: Border.all(
                           color: dark
@@ -122,52 +124,53 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
                       child: Directionality(
                         textDirection: TextDirection.ltr,
                         child: Stack(
-                        children: [
-                          // المؤشر الأصفر المنزلق
-                          AnimatedPositioned(
-                            duration: dragging
-                                ? Duration.zero
-                                : const Duration(milliseconds: 280),
-                            curve: Curves.easeOutCubic,
-                            left: _pad + pos * cell,
-                            top: _pad,
-                            width: cell,
-                            height: _height - _pad * 2,
-                            // مؤشر أصفر خفيف بلا توهج
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: AppColors.yellow
-                                    .withValues(alpha: dark ? 0.22 : 0.42),
-                                borderRadius: BorderRadius.circular(
-                                  (_height - _pad * 2) / 2,
+                          children: [
+                            // المؤشر الأصفر المنزلق
+                            AnimatedPositioned(
+                              duration: dragging
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 280),
+                              curve: Curves.easeOutCubic,
+                              left: _pad + pos * cell,
+                              top: _pad,
+                              width: cell,
+                              height: _height - _pad * 2,
+                              // مؤشر خفيف بلا توهج بلون الثيم المختار
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: StudyTone.purple.withValues(
+                                    alpha: dark ? 0.26 : 0.16,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    (_height - _pad * 2) / 2,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(_pad),
-                            child: Row(
-                              children: [
-                                for (var i = 0; i < _count; i++)
-                                  Expanded(
-                                    child: Directionality(
-                                      // النص داخل الخانة بلغة التطبيق
-                                      textDirection: _rtl
-                                          ? TextDirection.rtl
-                                          : TextDirection.ltr,
-                                      child: _NavCell(
-                                        item: widget.items[_visual(i)],
-                                        selected: _visual(i) == widget.index,
-                                        closeness: (1 - (pos - i).abs())
-                                            .clamp(0.0, 1.0),
+                            Padding(
+                              padding: const EdgeInsets.all(_pad),
+                              child: Row(
+                                children: [
+                                  for (var i = 0; i < _count; i++)
+                                    Expanded(
+                                      child: Directionality(
+                                        // النص داخل الخانة بلغة التطبيق
+                                        textDirection: _rtl
+                                            ? TextDirection.rtl
+                                            : TextDirection.ltr,
+                                        child: _NavCell(
+                                          item: widget.items[_visual(i)],
+                                          selected: _visual(i) == widget.index,
+                                          closeness: (1 - (pos - i).abs())
+                                              .clamp(0.0, 1.0),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -194,10 +197,13 @@ class _NavCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // المؤشر صار خفيفًا: المحدد أسود نهارًا وأصفر ليلًا حتى يبقى واضحًا
+    // المحدد بنفسجي غامق نهارًا وبنفسجي فاتح ليلًا حتى يبقى واضحًا فوق المؤشر الخفيف
     final dark = AppColors.isDark;
     final idle = dark ? const Color(0xFFA19C92) : const Color(0xFF6B6B6B);
-    final on = dark ? AppColors.yellow : AppColors.onYellow;
+    // لون الثيم: أغمق قليلًا نهارًا وأفتح ليلًا حتى يبقى واضحًا فوق المؤشر الخفيف
+    final on = dark
+        ? Color.lerp(StudyTone.purple, Colors.white, 0.3)!
+        : Color.lerp(StudyTone.purple, Colors.black, 0.18)!;
     final color = Color.lerp(idle, on, closeness)!;
     final active = closeness > 0.5;
 

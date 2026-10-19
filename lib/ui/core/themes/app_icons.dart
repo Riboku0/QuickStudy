@@ -17,6 +17,8 @@ abstract final class AppIcons {
 
   // الملفات
   static const AppIconData upload = HugeIcons.strokeRoundedCloudUpload;
+  static const AppIconData download = HugeIcons.strokeRoundedCloudDownload;
+  static const AppIconData link = HugeIcons.strokeRoundedLink01;
   static const AppIconData add = HugeIcons.strokeRoundedAdd01;
   static const AppIconData pdf = HugeIcons.strokeRoundedPdf01;
   static const AppIconData image = HugeIcons.strokeRoundedImage01;
@@ -34,6 +36,7 @@ abstract final class AppIcons {
   static const AppIconData close = HugeIcons.strokeRoundedCancel01;
   static const AppIconData sort = HugeIcons.strokeRoundedArrowDataTransferVertical;
   static const AppIconData more = HugeIcons.strokeRoundedMoreVertical;
+  static const AppIconData moreHorizontal = HugeIcons.strokeRoundedMoreHorizontal;
   static const AppIconData edit = HugeIcons.strokeRoundedEdit02;
   static const AppIconData dragHandle = HugeIcons.strokeRoundedDragDropVertical;
   static const AppIconData remove = HugeIcons.strokeRoundedRemove01;
@@ -73,4 +76,20 @@ abstract final class AppIcons {
 
   // أيقونات اتجاهية: تنعكس تلقائيًا في العربية (من اليمين لليسار)
   static final Set<AppIconData> directional = {chevron, next, previous};
+
+  // صورة الغلاف
+  static const AppIconData imageAdd = HugeIcons.strokeRoundedImageAdd01;
+
+  // صفحة المذاكرة: التحية والاقتباس والزخرفة
+  static const AppIconData wave = HugeIcons.strokeRoundedWavingHand01;
+  static const AppIconData quote = HugeIcons.strokeRoundedQuoteUp;
+  static const AppIconData sparkles = HugeIcons.strokeRoundedSparkles;
+
+  // لوحة الرئيسية
+  static const AppIconData fire = HugeIcons.strokeRoundedFire;
+  static const AppIconData timer = HugeIcons.strokeRoundedTimer01;
+  static const AppIconData target = HugeIcons.strokeRoundedTarget02;
+  static const AppIconData files = HugeIcons.strokeRoundedFiles01;
+  static const AppIconData chart = HugeIcons.strokeRoundedChartHistogram;
+
 }
