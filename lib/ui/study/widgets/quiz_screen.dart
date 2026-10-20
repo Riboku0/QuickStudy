@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:provider/provider.dart';
 
 import '../../../domain/models/quiz_question.dart';
 import '../../../domain/models/study_deck.dart';
@@ -17,7 +18,13 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> {
-  late final QuizViewModel vm = QuizViewModel(deck: widget.deck);
+  late final QuizViewModel vm;
+
+  @override
+  void initState() {
+    super.initState();
+    vm = QuizViewModel(deck: widget.deck, stats: context.read());
+  }
   final ScrollController _scroll = ScrollController();
 
   @override

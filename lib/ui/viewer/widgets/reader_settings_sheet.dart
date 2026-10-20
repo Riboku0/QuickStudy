@@ -8,14 +8,14 @@ import 'reader_chrome.dart';
 // ألوان ورق العارض
 extension ReaderBackgroundColor on ReaderBackground {
   Color get color => switch (this) {
-        // درجات هادئة مأخوذة من صفحات مرجع المستخدم (لا من دوائر الاختيار)
-        ReaderBackground.classic => const Color(0xFFF8F1E4),
-        ReaderBackground.green => const Color(0xFFE9F2E5),
-        ReaderBackground.blue => const Color(0xFFE8F0F7),
-        ReaderBackground.light => const Color(0xFFFBF7F4),
-        ReaderBackground.warm => const Color(0xFFF9ECE2),
-        ReaderBackground.dark => const Color(0xFF262B29),
-      };
+    // درجات هادئة مأخوذة من صفحات مرجع المستخدم (لا من دوائر الاختيار)
+    ReaderBackground.classic => const Color(0xFFF8F1E4),
+    ReaderBackground.green => const Color(0xFFE9F2E5),
+    ReaderBackground.blue => const Color(0xFFE8F0F7),
+    ReaderBackground.light => const Color(0xFFFBF7F4),
+    ReaderBackground.warm => const Color(0xFFF9ECE2),
+    ReaderBackground.dark => const Color(0xFF262B29),
+  };
 
   bool get isDark => this == ReaderBackground.dark;
 }
@@ -23,25 +23,34 @@ extension ReaderBackgroundColor on ReaderBackground {
 // لوحة إعدادات القراءة (تفتح من زر الإعدادات في العارض)
 // كل تغيير يُطبَّق فورًا ويُحفظ لكل الكتب. ألوانها تتبع الليلي والنهاري.
 class ReaderSettingsSheet extends StatelessWidget {
-  const ReaderSettingsSheet({super.key, required this.repository});
+  const ReaderSettingsSheet({
+    super.key,
+    required this.repository,
+    this.showLayout = true,
+  });
 
   final ReaderSettingsRepository repository;
+  // مفتاح القراءة العامودية/الأفقية (العارض الجديد عامودي فقط حاليًا)
+  final bool showLayout;
 
   static Future<void> show(
     BuildContext context,
-    ReaderSettingsRepository repository,
-  ) {
+    ReaderSettingsRepository repository, {
+    bool showLayout = true,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      // فوق شريط أزرار أندرويد (التطبيق يخفي شريط الحالة فقط)
+      useSafeArea: true,
       // اللون من داخل اللوحة (يتغير فورًا مع الوضع الليلي)
       backgroundColor: Colors.transparent,
       // بدون تعتيم حتى ترى أثر التغيير على الصفحة
       barrierColor: Colors.transparent,
-      builder: (_) => ReaderSettingsSheet(repository: repository),
+      builder: (_) =>
+          ReaderSettingsSheet(repository: repository, showLayout: showLayout),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +64,8 @@ class ReaderSettingsSheet extends StatelessWidget {
         void set(ReaderSettings value) => repository.update(value);
         final c = ReaderChrome(
           dark: r.nightMode || r.background.isDark,
-          paper: r.background.color,
+          // الليلي له ورق كحلي موحّد (الافتراضي في ReaderChrome)
+          paper: r.nightMode ? null : r.background.color,
         );
         final labelStyle = TextStyle(
           fontSize: 15,
@@ -76,7 +86,7 @@ class ReaderSettingsSheet extends StatelessWidget {
                 22,
                 12,
                 22,
-                20 + MediaQuery.paddingOf(context).bottom,
+                20 + MediaQuery.viewPaddingOf(context).bottom,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -136,8 +146,10 @@ class ReaderSettingsSheet extends StatelessWidget {
                       Expanded(child: Text(s.margins, style: labelStyle)),
                       Container(
                         height: 40,
-                        padding:
-                            const EdgeInsetsDirectional.only(start: 12, end: 6),
+                        padding: const EdgeInsetsDirectional.only(
+                          start: 12,
+                          end: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: c.chip,
                           borderRadius: BorderRadius.circular(12),
@@ -215,13 +227,14 @@ class ReaderSettingsSheet extends StatelessWidget {
                   const SizedBox(height: 6),
 
                   // المفاتيح
-                  _SwitchRow(
-                    label: s.verticalReading,
-                    value: r.vertical,
-                    style: labelStyle,
-                    chrome: c,
-                    onChanged: (v) => set(r.copyWith(vertical: v)),
-                  ),
+                  if (showLayout)
+                    _SwitchRow(
+                      label: s.verticalReading,
+                      value: r.vertical,
+                      style: labelStyle,
+                      chrome: c,
+                      onChanged: (v) => set(r.copyWith(vertical: v)),
+                    ),
                   _SwitchRow(
                     label: s.nightMode,
                     value: r.nightMode,
@@ -320,6 +333,11 @@ class _Swatch extends StatelessWidget {
   final ReaderChrome chrome;
   final VoidCallback onTap;
 
+  // نفس اللون أغمق (للورق الفاتح) أو أفتح (للورق الداكن)
+  Color get _deep => color.computeLuminance() > 0.4
+      ? Color.lerp(color, Colors.black, 0.45)!
+      : Color.lerp(color, Colors.white, 0.55)!;
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -333,20 +351,13 @@ class _Swatch extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(12),
+            // المختار بإطار من درجة أعمق من لونه نفسه (لا لون الثيم)
             border: Border.all(
-              color: selected ? chrome.strong : chrome.line,
-              width: selected ? 3 : 1,
+              color: selected ? _deep : chrome.line,
+              width: selected ? 2.5 : 1,
             ),
           ),
-          child: selected
-              ? Icon(
-                  Icons.check,
-                  size: 20,
-                  color: color.computeLuminance() > 0.4
-                      ? const Color(0xFF202020)
-                      : Colors.white,
-                )
-              : null,
+          child: selected ? Icon(Icons.check, size: 20, color: _deep) : null,
         ),
       ),
     );

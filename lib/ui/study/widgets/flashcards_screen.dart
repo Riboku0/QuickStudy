@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:provider/provider.dart';
 
 import '../../../domain/models/flashcard.dart';
 import '../../../domain/models/study_deck.dart';
@@ -19,7 +20,13 @@ class FlashcardsScreen extends StatefulWidget {
 }
 
 class _FlashcardsScreenState extends State<FlashcardsScreen> {
-  late final FlashcardsViewModel vm = FlashcardsViewModel(deck: widget.deck);
+  late final FlashcardsViewModel vm;
+
+  @override
+  void initState() {
+    super.initState();
+    vm = FlashcardsViewModel(deck: widget.deck, stats: context.read());
+  }
 
   @override
   void dispose() {

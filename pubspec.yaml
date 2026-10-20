@@ -43,15 +43,12 @@ dependencies:
   sqflite: ^2.4.4+2
   path_provider: ^2.1.6
   path: ^1.9.1
-  docx_to_text: ^1.0.1
-  archive: ^3.6.1
-  xml: ^6.6.1
+  archive: 4.5.2
   google_mlkit_text_recognition: ^0.17.1
   csv: ^8.0.0
   syncfusion_flutter_pdf: ^33.2.13
   pdf: ^3.12.0
   flutter_tesseract_ocr: ^0.4.31
-  image: ^4.3.0
   printing: ^5.14.3
   share_plus: ^13.3.1
   file_selector: ^1.1.0
@@ -60,7 +57,7 @@ dependencies:
   url_launcher: ^6.3.3
   phosphoricons_flutter: ^1.1.1
   flutter_epub_viewer: ^2.1.0
-  pdfrx: ^2.4.5
+  pdfrx: 2.6.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

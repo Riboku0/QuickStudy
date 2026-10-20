@@ -27,16 +27,30 @@ abstract final class AppIcons {
   static const AppIconData archive = HugeIcons.strokeRoundedArchive02;
   static const AppIconData trash = HugeIcons.strokeRoundedDelete02;
   static const AppIconData bookmark = HugeIcons.strokeRoundedBookmark01;
-  static const AppIconData bookmarkSaved = HugeIcons.strokeRoundedBookmarkCheck01;
+  static const AppIconData bookmarkSaved =
+      HugeIcons.strokeRoundedBookmarkCheck01;
+  static const AppIconData bookmarkAdd = HugeIcons.strokeRoundedBookmarkAdd02;
+  static const AppIconData copy = HugeIcons.strokeRoundedCopy01;
+  static const AppIconData stickyNote = HugeIcons.strokeRoundedStickyNote02;
   static const AppIconData pen = HugeIcons.strokeRoundedPencilEdit02;
+  static const AppIconData draw = HugeIcons.strokeRoundedPenTool01;
+  static const AppIconData penNib = HugeIcons.strokeRoundedPenTool01;
+  static const AppIconData textTool = HugeIcons.strokeRoundedTextFont;
+  static const AppIconData pencil = HugeIcons.strokeRoundedPencil;
+  static const AppIconData highlighter = HugeIcons.strokeRoundedHighlighter;
+  static const AppIconData eraser = HugeIcons.strokeRoundedEraser01;
+  static const AppIconData undo = HugeIcons.strokeRoundedUndo02;
+  static const AppIconData redo = HugeIcons.strokeRoundedRedo02;
   static const AppIconData calendar = HugeIcons.strokeRoundedCalendar03;
 
   // البحث والقوائم
   static const AppIconData search = HugeIcons.strokeRoundedSearch01;
   static const AppIconData close = HugeIcons.strokeRoundedCancel01;
-  static const AppIconData sort = HugeIcons.strokeRoundedArrowDataTransferVertical;
+  static const AppIconData sort =
+      HugeIcons.strokeRoundedArrowDataTransferVertical;
   static const AppIconData more = HugeIcons.strokeRoundedMoreVertical;
-  static const AppIconData moreHorizontal = HugeIcons.strokeRoundedMoreHorizontal;
+  static const AppIconData moreHorizontal =
+      HugeIcons.strokeRoundedMoreHorizontal;
   static const AppIconData edit = HugeIcons.strokeRoundedEdit02;
   static const AppIconData dragHandle = HugeIcons.strokeRoundedDragDropVertical;
   static const AppIconData remove = HugeIcons.strokeRoundedRemove01;
@@ -52,7 +66,8 @@ abstract final class AppIcons {
   static const AppIconData brain = HugeIcons.strokeRoundedBrain02;
   static const AppIconData next = HugeIcons.strokeRoundedArrowRight02;
   static const AppIconData previous = HugeIcons.strokeRoundedArrowLeft02;
-  static const AppIconData replay = HugeIcons.strokeRoundedArrowReloadHorizontal;
+  static const AppIconData replay =
+      HugeIcons.strokeRoundedArrowReloadHorizontal;
   static const AppIconData tap = HugeIcons.strokeRoundedCursorPointer01;
   static const AppIconData idea = HugeIcons.strokeRoundedBulb;
   static const AppIconData trophy = HugeIcons.strokeRoundedChampion;
@@ -91,5 +106,4 @@ abstract final class AppIcons {
   static const AppIconData target = HugeIcons.strokeRoundedTarget02;
   static const AppIconData files = HugeIcons.strokeRoundedFiles01;
   static const AppIconData chart = HugeIcons.strokeRoundedChartHistogram;
-
 }

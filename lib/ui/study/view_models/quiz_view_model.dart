@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../data/repositories/stats/reading_stats_repository.dart';
 import '../../../domain/models/quiz_question.dart';
 import '../../../domain/models/study_deck.dart';
 
@@ -7,10 +8,12 @@ enum OptionState { idle, correct, wrong, faded }
 
 // منطق الاختبار: الإجابات، النتيجة، الانتقال بين الأسئلة
 class QuizViewModel extends ChangeNotifier {
-  QuizViewModel({required this.deck})
-      : _answers = List<int?>.filled(deck.quiz.length, null);
+  QuizViewModel({required this.deck, ReadingStatsRepository? stats})
+      : _stats = stats,
+        _answers = List<int?>.filled(deck.quiz.length, null);
 
   final StudyDeck deck;
+  final ReadingStatsRepository? _stats;
 
   List<int?> _answers;
   int _index = 0;
@@ -53,6 +56,7 @@ class QuizViewModel extends ChangeNotifier {
   bool select(int option) {
     if (isAnswered) return current.isCorrect(chosen!);
     _answers[_index] = option;
+    _stats?.addQuestions(1);
     notifyListeners();
     return current.isCorrect(option);
   }

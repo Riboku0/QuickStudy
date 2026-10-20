@@ -40,12 +40,12 @@ class ReaderSettings {
   }
 
   Map<String, Object?> toMap() => {
-        'brightness': brightness,
-        'margin': margin.name,
-        'background': background.name,
-        'nightMode': nightMode,
-        'vertical': vertical,
-      };
+    'brightness': brightness,
+    'margin': margin.name,
+    'background': background.name,
+    'nightMode': nightMode,
+    'vertical': vertical,
+  };
 
   // أسماء الألوان القديمة المحفوظة ← أقرب لون جديد (حتى لا يضيع اختيار المستخدم)
   static const Map<String, String> _oldBackgrounds = {

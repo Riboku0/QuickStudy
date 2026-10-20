@@ -8,7 +8,8 @@ import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, FilteringTextInputFormatter, HapticFeedback;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -582,6 +583,9 @@ class _InputDialogState extends State<_InputDialog> {
         maxLines: widget.number ? 1 : 6,
         textCapitalization: TextCapitalization.sentences,
         onSubmitted: widget.number ? (_) => _submit() : null,
+        // رقم صفحة: أرقام صحيحة فقط (لا فاصلة عشرية)
+        inputFormatters:
+            widget.number ? [FilteringTextInputFormatter.digitsOnly] : null,
       ),
       actions: [
         TextButton(
@@ -2062,6 +2066,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
           onBookmark: _bookmarkSelection,
           onMore: _showMoreSheet,
           dark: _paperIsDark,
+          surface: _chrome.surface,
+          accent: _chrome.strong,
         ),
       ),
     ];

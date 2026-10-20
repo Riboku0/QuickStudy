@@ -1,14 +1,20 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../data/repositories/stats/reading_stats_repository.dart';
 import '../../../domain/models/flashcard.dart';
 import '../../../domain/models/study_deck.dart';
 
 // منطق جلسة البطاقات: البطاقة الحالية، التالي/السابق، نهاية المجموعة.
 // (حالة قلب البطاقة نفسها حالة بصرية مؤقتة، تبقى داخل الويدجت)
 class FlashcardsViewModel extends ChangeNotifier {
-  FlashcardsViewModel({required this.deck});
+  FlashcardsViewModel({required this.deck, ReadingStatsRepository? stats})
+      : _stats = stats;
 
   final StudyDeck deck;
+  final ReadingStatsRepository? _stats;
+
+  // البطاقات التي روجعت في هذه الجولة (حتى لا يُحسب الرجوع مرتين)
+  final Set<int> _reviewed = {};
 
   int _index = 0;
   bool _finished = false;
@@ -25,6 +31,7 @@ class FlashcardsViewModel extends ChangeNotifier {
   bool get hasQuiz => deck.quiz.isNotEmpty;
 
   void next() {
+    if (_reviewed.add(_index)) _stats?.addCards(1);
     if (isLast) {
       _finished = true;
     } else {
@@ -40,6 +47,7 @@ class FlashcardsViewModel extends ChangeNotifier {
   }
 
   void restart() {
+    _reviewed.clear();
     _index = 0;
     _finished = false;
     notifyListeners();

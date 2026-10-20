@@ -2,26 +2,29 @@ import 'package:flutter/material.dart';
 
 import '../../core/themes/study_tone.dart';
 
-// ألوان واجهة القراءة (لوحة الإعدادات، قائمة التحديد، شريط القلم، أزرار الزوم).
-// نهارًا تأخذ درجة فاتحة من لون الورق المختار، وليلًا (أو مع ورق داكن) كحلية هادئة.
-// لون التمييز (الشرائح والمفاتيح والاختيار) هو لون ثيم التطبيق.
+// ألوان واجهة القراءة (لوحة الإعدادات، قائمة التحديد، شريط القلم).
+// كلها مشتقة من لون الورق المختار (فاتحًا أو داكنًا) حتى تطابقه،
+// ولون التمييز (الشرائح والمفاتيح والاختيار والتحديد) هو لون ثيم التطبيق.
 @immutable
 class ReaderChrome {
   const ReaderChrome({required this.dark, this.paper});
 
   final bool dark;
-  // لون الورق الحالي (null = أبيض)
+  // لون الورق الحالي (null = أبيض نهارًا / كحلي ليلًا)
   final Color? paper;
 
-  // نهارًا: الورق نفسه أفتح قليلًا، فتبدو اللوحة جزءًا من الصفحة
+  Color get _base => paper ?? (dark ? const Color(0xFF222733) : Colors.white);
+
+  // اللوحة: لون الورق نفسه أفتح قليلًا (نهارًا وليلًا)، فتطابق الصفحة،
+  // والحد والظل يفصلانها عنها
   Color get surface => dark
-      ? const Color(0xFF262B36)
-      : Color.lerp(paper ?? Colors.white, Colors.white, 0.45)!;
-  Color get ink => dark ? const Color(0xFFE3E6EC) : const Color(0xFF202020);
-  Color get muted => dark ? const Color(0x99E3E6EC) : const Color(0x8A000000);
+      ? Color.lerp(_base, Colors.white, 0.07)!
+      : Color.lerp(_base, Colors.white, 0.15)!;
+  Color get ink => dark ? const Color(0xFFE6E8EC) : const Color(0xFF202020);
+  Color get muted => dark ? const Color(0x99E6E8EC) : const Color(0x8A000000);
   Color get line => dark ? const Color(0x1FFFFFFF) : const Color(0x14000000);
   Color get chip => dark
-      ? const Color(0xFF323846)
+      ? Color.lerp(_base, Colors.white, 0.14)!
       : Color.lerp(surface, Colors.black, 0.06)!;
 
   // لون الثيم: خفيف للخلفيات وقوي للتمييز
@@ -29,7 +32,11 @@ class ReaderChrome {
   Color get accent => strong.withValues(alpha: dark ? 0.30 : 0.18);
   Color get onAccent => strong;
 
-  // أزرار الزوم العائمة
-  Color get fab => dark ? const Color(0xFF323846) : const Color(0xFF202020);
-  Color get onFab => dark ? const Color(0xFFE3E6EC) : Colors.white;
+  // تحديد النص بلون الثيم بدل الأزرق الافتراضي
+  Color get selection => strong.withValues(alpha: dark ? 0.40 : 0.28);
+
+  // الأزرار العائمة (رقم الصفحة على شريط السحب)
+  Color get fab =>
+      dark ? Color.lerp(_base, Colors.white, 0.20)! : const Color(0xFF202020);
+  Color get onFab => dark ? const Color(0xFFE6E8EC) : Colors.white;
 }

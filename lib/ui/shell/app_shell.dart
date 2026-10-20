@@ -46,7 +46,6 @@ class _AppShellState extends State<AppShell> {
       lectures: context.read(),
       subjects: context.read(),
       progress: context.read(),
-      bookmarks: context.read(),
       stats: context.read(),
       settings: context.read(),
     );
@@ -74,7 +73,7 @@ class _AppShellState extends State<AppShell> {
         index: _index,
         children: [
           // الرئيسية: لوحة أرقام للمكتبة والمذاكرة (عرض فقط)
-          DashboardScreen(viewModel: _dashboard),
+          DashboardScreen(viewModel: _dashboard, onOpenTab: _openTab),
           StudyScreen(viewModel: _study),
           // المكتبة: قراءة ملفات PDF (شاشة Home سابقًا)
           HomeScreen(viewModel: _home, onOpenTab: _openTab),

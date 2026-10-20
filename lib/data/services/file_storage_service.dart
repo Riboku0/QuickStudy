@@ -41,6 +41,14 @@ class FileStorageService {
     await deleteIfExists(
       p.join(directory.path, 'quickstudy_notes', '${lectureId}_marks.json'),
     );
+    // الرسم الحر (العارض الجديد)
+    await deleteIfExists(
+      p.join(directory.path, 'quickstudy_notes', '${lectureId}_ink.json'),
+    );
+    // المذكرات (بطاقات الكتابة والرسم)
+    await deleteIfExists(
+      p.join(directory.path, 'quickstudy_notes', '${lectureId}_cards.json'),
+    );
     await deleteIfExists(
       p.join(directory.path, 'quickstudy_edits', '${lectureId}_edited.txt'),
     );
