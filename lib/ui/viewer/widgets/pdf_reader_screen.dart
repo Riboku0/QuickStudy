@@ -83,6 +83,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   late final PdfNotes _notes = PdfNotes(widget.fileId);
   late final PdfNoteCards _cards = PdfNoteCards(widget.fileId);
   NoteCard? _openCard;
+  double _cardHeight = 300; // ارتفاع المذكرة المفتوحة، يتغير بسحب مقبضها
   InkStroke? _cardLive;
   int _cardInkVersion = 0;
   final _cardText = TextEditingController();
@@ -1141,28 +1142,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     );
   }
 
-  // مكان البطاقة المفتوحة على الشاشة، وعرض الصفحة بعد الزوم
-  ({Rect rect, double pageWidth})? _cardGeometry(NoteCard card) {
-    if (!_controller.isReady) return null;
-    final List<Rect> layouts;
-    try {
-      layouts = _controller.layout.pageLayouts;
-    } catch (_) {
-      return null;
-    }
-    if (card.page >= layouts.length) return null;
-    final pr = layouts[card.page];
-    final doc = Rect.fromLTWH(
-      pr.left + card.x * pr.width,
-      pr.top + card.y * pr.height,
-      card.w * pr.width,
-      card.h * pr.width,
-    );
-    return (
-      rect: MatrixUtils.transformRect(_controller.value, doc),
-      pageWidth: pr.width * _controller.currentZoom,
-    );
-  }
+  // مساحة رسم البطاقة بنسبة ثابتة من عرضها، فتغيير الارتفاع يكشف الرسم أو
+  // يخفيه ولا يمطّه (النسبة نفسها التي كانت للبطاقة على الصفحة)
+  Size _cardCanvas(NoteCard card, double width) =>
+      Size(width, width * card.h / card.w);
 
   // أيقونات المذكرات المطوية على الصفحات (لمسة تفتحها، وسحبها يحركها)
   Widget _cardIcons() {
@@ -1247,14 +1230,14 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   }
 
   // البطاقة المفتوحة: تكتب فيها بأداة النص أو المذكرة، وترسم بالقلم أو الرصاص،
-  // وتمسح بالممحاة. ترتبط بالصفحة فتتحرك وتكبر معها.
+  // وتمسح بالممحاة. تظهر بعرض الشاشة فوق لوحة المفاتيح مباشرة (جسم Scaffold
+  // ينتهي عند لوحة المفاتيح)، ويُغيَّر ارتفاعها بسحب المقبض العلوي.
   Widget _cardView() {
     return ListenableBuilder(
-      listenable: Listenable.merge([_controller, _cards]),
+      listenable: _cards,
       builder: (context, _) {
         final card = _openCard;
-        final g = card == null ? null : _cardGeometry(card);
-        if (card == null || g == null) return const SizedBox.shrink();
+        if (card == null) return const SizedBox.shrink();
         final c = _chrome;
         final s = AppStrings.of(context);
         final drawing =
@@ -1262,132 +1245,191 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             (_tool == InkTool.pen ||
                 _tool == InkTool.pencil ||
                 _tool == InkTool.eraser);
-        final fontSize = 0.032 * g.pageWidth;
+        const fontSize = 16.0;
+        // بلا لوحة مفاتيح: فوق شريط أندرويد
+        final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
+        final bottomPad = keyboard ? 0.0 : MediaQuery.paddingOf(context).bottom;
 
-        return Stack(
-          children: [
-            Positioned.fromRect(
-              rect: g.rect,
-              child: Material(
-                color: _cardColor,
-                elevation: 10,
-                shadowColor: Colors.black45,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: BorderSide(color: c.strong, width: 1.4),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    // الرأس: الأيقونة + حذف + طي
-                    SizedBox(
-                      height: 40,
-                      child: Row(
+        return LayoutBuilder(
+          builder: (context, area) {
+            const minHeight = 150.0;
+            final maxHeight = (area.maxHeight - 24).clamp(
+              minHeight,
+              double.infinity,
+            );
+            final height = _cardHeight.clamp(minHeight, maxHeight);
+            return Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: height + bottomPad,
+                  child: Material(
+                    color: _cardColor,
+                    elevation: 14,
+                    shadowColor: Colors.black45,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(22),
+                      ),
+                      side: BorderSide(
+                        color: c.strong.withValues(alpha: 0.5),
+                        width: 1.2,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: bottomPad),
+                      child: Column(
                         children: [
-                          const SizedBox(width: 10),
-                          AppIcon(
-                            AppIcons.stickyNote,
-                            size: 20,
-                            color: c.strong,
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            tooltip: s.delete,
-                            onPressed: _deleteCard,
-                            icon: AppIcon(
-                              AppIcons.trash,
-                              size: 19,
-                              color: c.ink,
+                          // مقبض التمديد: سحب للأعلى يكبّرها وللأسفل يصغّرها
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onVerticalDragUpdate: (d) => setState(
+                              () => _cardHeight = (height - d.delta.dy).clamp(
+                                minHeight,
+                                maxHeight,
+                              ),
+                            ),
+                            child: Semantics(
+                              label: s.resizeNote,
+                              child: SizedBox(
+                                height: 22,
+                                width: double.infinity,
+                                child: Center(
+                                  child: Container(
+                                    width: 40,
+                                    height: 5,
+                                    decoration: BoxDecoration(
+                                      color: c.strong.withValues(alpha: 0.45),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                          IconButton(
-                            tooltip: s.closeNote,
-                            onPressed: _closeCard,
-                            icon: AppIcon(
-                              AppIcons.close,
-                              size: 19,
-                              color: c.ink,
+                          // الرأس: الأيقونة + حذف + طي
+                          SizedBox(
+                            height: 40,
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 10),
+                                AppIcon(
+                                  AppIcons.stickyNote,
+                                  size: 20,
+                                  color: c.strong,
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  tooltip: s.delete,
+                                  onPressed: _deleteCard,
+                                  icon: AppIcon(
+                                    AppIcons.trash,
+                                    size: 19,
+                                    color: c.ink,
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: s.closeNote,
+                                  onPressed: _closeCard,
+                                  icon: AppIcon(
+                                    AppIcons.close,
+                                    size: 19,
+                                    color: c.ink,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(
+                            height: 1,
+                            color: c.strong.withValues(alpha: 0.25),
+                          ),
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, box) {
+                                final canvas = _cardCanvas(card, box.maxWidth);
+                                return Stack(
+                                  clipBehavior: Clip.hardEdge,
+                                  children: [
+                                    Positioned.fill(
+                                      child: TextField(
+                                        controller: _cardText,
+                                        focusNode: _cardFocus,
+                                        readOnly: drawing,
+                                        expands: true,
+                                        maxLines: null,
+                                        keyboardType: TextInputType.multiline,
+                                        cursorColor: c.strong,
+                                        textDirection: textDirectionFor(
+                                          _cardText.text,
+                                        ),
+                                        style: TextStyle(
+                                          fontSize: fontSize,
+                                          height: 1.45,
+                                          color: c.ink,
+                                        ),
+                                        decoration: InputDecoration(
+                                          isCollapsed: true,
+                                          border: InputBorder.none,
+                                          contentPadding: EdgeInsets.all(
+                                            fontSize * 0.6,
+                                          ),
+                                        ),
+                                        onChanged: (v) => card.text = v,
+                                      ),
+                                    ),
+                                    // الرسم داخل البطاقة فوق النص
+                                    Positioned(
+                                      left: 0,
+                                      top: 0,
+                                      width: canvas.width,
+                                      height: canvas.height,
+                                      child: IgnorePointer(
+                                        child: CustomPaint(
+                                          painter: _CardInkPainter(
+                                            strokes: [
+                                              ...card.strokes,
+                                              ?_cardLive,
+                                            ],
+                                            version: _cardInkVersion,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (drawing)
+                                      Positioned.fill(
+                                        child: Listener(
+                                          behavior: HitTestBehavior.opaque,
+                                          onPointerDown: (e) => _cardDown(
+                                            card,
+                                            e.localPosition,
+                                            canvas,
+                                          ),
+                                          onPointerMove: (e) => _cardMove(
+                                            card,
+                                            e.localPosition,
+                                            canvas,
+                                          ),
+                                          onPointerUp: (_) => _cardUp(card),
+                                          onPointerCancel: (_) => _cardUp(card),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Divider(height: 1, color: c.strong.withValues(alpha: 0.25)),
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, box) {
-                          final bodySize = box.biggest;
-                          return Stack(
-                            children: [
-                              Positioned.fill(
-                                child: TextField(
-                                  controller: _cardText,
-                                  focusNode: _cardFocus,
-                                  readOnly: drawing,
-                                  expands: true,
-                                  maxLines: null,
-                                  keyboardType: TextInputType.multiline,
-                                  cursorColor: c.strong,
-                                  textDirection: textDirectionFor(
-                                    _cardText.text,
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: fontSize,
-                                    height: 1.45,
-                                    color: c.ink,
-                                  ),
-                                  decoration: InputDecoration(
-                                    isCollapsed: true,
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.all(
-                                      fontSize * 0.6,
-                                    ),
-                                  ),
-                                  onChanged: (v) => card.text = v,
-                                ),
-                              ),
-                              // الرسم داخل البطاقة فوق النص
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  child: CustomPaint(
-                                    painter: _CardInkPainter(
-                                      strokes: [
-                                        ...card.strokes,
-                                        ?_cardLive,
-                                      ],
-                                      version: _cardInkVersion,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (drawing)
-                                Positioned.fill(
-                                  child: Listener(
-                                    behavior: HitTestBehavior.opaque,
-                                    onPointerDown: (e) => _cardDown(
-                                      card,
-                                      e.localPosition,
-                                      bodySize,
-                                    ),
-                                    onPointerMove: (e) => _cardMove(
-                                      card,
-                                      e.localPosition,
-                                      bodySize,
-                                    ),
-                                    onPointerUp: (_) => _cardUp(card),
-                                    onPointerCancel: (_) => _cardUp(card),
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );

@@ -77,9 +77,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           return LayoutBuilder(
             builder: (context, box) {
               final width = box.maxWidth;
-              // المشهد بعرض الشاشة، وارتفاعه محدود في الشاشات العريضة
-              final sceneHeight = (width * 0.62).clamp(210.0, 320.0);
-              const overlap = 30.0; // بطاقة المتابعة تعلو أسفل المشهد
+              // المشهد بعرض الشاشة بنسبة الرسمة، وارتفاعه محدود في الشاشات العريضة
+              final sceneHeight = (width / HomeScene.aspect).clamp(150.0, 300.0);
+              const overlap = 14.0; // بطاقة المتابعة تعلو أسفل المشهد قليلًا
 
               return ListView(
                 padding: EdgeInsets.only(

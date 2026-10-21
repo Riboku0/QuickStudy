@@ -353,6 +353,7 @@ abstract class AppStrings {
   String get noteOpacity;
   String get noteRotate;
   String get closeNote;
+  String get resizeNote;
   String get noteTool;
   String get textTool;
   String get lineStyle;
@@ -752,6 +753,7 @@ class _En extends AppStrings {
   @override String get noteOpacity => 'Opacity';
   @override String get noteRotate => 'Rotate';
   @override String get closeNote => 'Close note';
+  @override String get resizeNote => 'Drag to resize the note';
   @override String get noteTool => 'Note';
   @override String get textTool => 'Text';
   @override String get lineStyle => 'Line';
@@ -1157,6 +1159,7 @@ class _Ar extends AppStrings {
   @override String get noteOpacity => 'الشفافية';
   @override String get noteRotate => 'الدوران';
   @override String get closeNote => 'إغلاق المذكرة';
+  @override String get resizeNote => 'اسحب لتغيير حجم المذكرة';
   @override String get noteTool => 'مذكرة';
   @override String get textTool => 'نص';
   @override String get lineStyle => 'نمط الخط';

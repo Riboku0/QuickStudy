@@ -82,6 +82,10 @@ flutter:
     - assets/tessdata/
     - assets/backgrounds/
     - assets/avatars/
+    - assets/scene/
+
+  shaders:
+    - shaders/scene_tint.frag
 
 
   # The following line ensures that the Material Icons font is

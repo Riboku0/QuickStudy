@@ -71,113 +71,120 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
     _rtl = Directionality.of(context) == TextDirection.rtl;
     final dark = AppColors.isDark;
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final cell = (width - _pad * 2) / _count;
-            final dragging = _drag != null;
-            final pos = _drag ?? _visual(widget.index).toDouble();
+    // طبقة رسم مستقلة: حركة المؤشر لا تعيد رسم الصفحة، والصفحة لا تعيد بناء الشريط
+    return RepaintBoundary(
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final cell = (width - _pad * 2) / _count;
+              final dragging = _drag != null;
+              final pos = _drag ?? _visual(widget.index).toDouble();
 
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapUp: (d) =>
-                  _select(_posFor(d.localPosition.dx, width).round()),
-              onHorizontalDragStart: (d) => _follow(d.localPosition.dx, width),
-              onHorizontalDragUpdate: (d) => _follow(d.localPosition.dx, width),
-              onHorizontalDragEnd: (_) => _endDrag(),
-              onHorizontalDragCancel: _endDrag,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(_height / 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(dark ? 0x55000000 : 0x14000000),
-                      blurRadius: 22,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(_height / 2),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                    child: Container(
-                      height: _height,
-                      decoration: BoxDecoration(
-                        // زجاج أشف: يظهر ما خلفه أكثر
-                        color: AppColors.surface.withValues(
-                          alpha: dark ? 0.48 : 0.38,
-                        ),
-                        borderRadius: BorderRadius.circular(_height / 2),
-                        border: Border.all(
-                          color: dark
-                              ? Colors.white.withValues(alpha: 0.14)
-                              : Colors.white.withValues(alpha: 0.65),
-                          width: 1,
-                        ),
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (d) =>
+                    _select(_posFor(d.localPosition.dx, width).round()),
+                onHorizontalDragStart: (d) =>
+                    _follow(d.localPosition.dx, width),
+                onHorizontalDragUpdate: (d) =>
+                    _follow(d.localPosition.dx, width),
+                onHorizontalDragEnd: (_) => _endDrag(),
+                onHorizontalDragCancel: _endDrag,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(_height / 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(dark ? 0x55000000 : 0x14000000),
+                        blurRadius: 22,
+                        offset: Offset(0, 10),
                       ),
-                      // الترتيب المرئي من اليسار دائمًا، والتحويل للعربية يتم أعلاه
-                      child: Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: Stack(
-                          children: [
-                            // المؤشر الأصفر المنزلق
-                            AnimatedPositioned(
-                              duration: dragging
-                                  ? Duration.zero
-                                  : const Duration(milliseconds: 280),
-                              curve: Curves.easeOutCubic,
-                              left: _pad + pos * cell,
-                              top: _pad,
-                              width: cell,
-                              height: _height - _pad * 2,
-                              // مؤشر خفيف بلا توهج بلون الثيم المختار
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: StudyTone.purple.withValues(
-                                    alpha: dark ? 0.26 : 0.16,
-                                  ),
-                                  borderRadius: BorderRadius.circular(
-                                    (_height - _pad * 2) / 2,
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(_height / 2),
+                    // blur أخف (كان 24): كان أثقل ما يُرسم في كل إطار أثناء التمرير
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                      child: Container(
+                        height: _height,
+                        decoration: BoxDecoration(
+                          // زجاج أشف: يظهر ما خلفه أكثر
+                          color: AppColors.surface.withValues(
+                            alpha: dark ? 0.48 : 0.38,
+                          ),
+                          borderRadius: BorderRadius.circular(_height / 2),
+                          border: Border.all(
+                            color: dark
+                                ? Colors.white.withValues(alpha: 0.14)
+                                : Colors.white.withValues(alpha: 0.65),
+                            width: 1,
+                          ),
+                        ),
+                        // الترتيب المرئي من اليسار دائمًا، والتحويل للعربية يتم أعلاه
+                        child: Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Stack(
+                            children: [
+                              // المؤشر الأصفر المنزلق
+                              AnimatedPositioned(
+                                duration: dragging
+                                    ? Duration.zero
+                                    : const Duration(milliseconds: 280),
+                                curve: Curves.easeOutCubic,
+                                left: _pad + pos * cell,
+                                top: _pad,
+                                width: cell,
+                                height: _height - _pad * 2,
+                                // مؤشر خفيف بلا توهج بلون الثيم المختار
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: StudyTone.purple.withValues(
+                                      alpha: dark ? 0.26 : 0.16,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      (_height - _pad * 2) / 2,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(_pad),
-                              child: Row(
-                                children: [
-                                  for (var i = 0; i < _count; i++)
-                                    Expanded(
-                                      child: Directionality(
-                                        // النص داخل الخانة بلغة التطبيق
-                                        textDirection: _rtl
-                                            ? TextDirection.rtl
-                                            : TextDirection.ltr,
-                                        child: _NavCell(
-                                          item: widget.items[_visual(i)],
-                                          selected: _visual(i) == widget.index,
-                                          closeness: (1 - (pos - i).abs())
-                                              .clamp(0.0, 1.0),
+                              Padding(
+                                padding: const EdgeInsets.all(_pad),
+                                child: Row(
+                                  children: [
+                                    for (var i = 0; i < _count; i++)
+                                      Expanded(
+                                        child: Directionality(
+                                          // النص داخل الخانة بلغة التطبيق
+                                          textDirection: _rtl
+                                              ? TextDirection.rtl
+                                              : TextDirection.ltr,
+                                          child: _NavCell(
+                                            item: widget.items[_visual(i)],
+                                            selected:
+                                                _visual(i) == widget.index,
+                                            closeness: (1 - (pos - i).abs())
+                                                .clamp(0.0, 1.0),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

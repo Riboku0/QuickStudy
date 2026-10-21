@@ -67,10 +67,10 @@ class _StudyScreenState extends State<StudyScreen> {
   }
 
   void _failed() => showAppMessage(
-        context,
-        AppStrings.of(context).studySaveFailed,
-        tone: MessageTone.error,
-      );
+    context,
+    AppStrings.of(context).studySaveFailed,
+    tone: MessageTone.error,
+  );
 
   Future<void> _newSubject() async {
     final input = await SubjectDialog.show(
