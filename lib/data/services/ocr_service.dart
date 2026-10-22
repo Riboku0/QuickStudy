@@ -18,7 +18,14 @@ class OcrWord {
   final Rect rect;
   final int line;
 
-  List<Object> toJson() => [text, rect.left, rect.top, rect.right, rect.bottom, line];
+  List<Object> toJson() => [
+    text,
+    rect.left,
+    rect.top,
+    rect.right,
+    rect.bottom,
+    line,
+  ];
 
   static OcrWord? fromJson(Object? raw) {
     if (raw is! List || raw.length < 6) return null;
@@ -76,15 +83,21 @@ class OcrService {
 
   Future<List<OcrWord>> _recognize(Uint8List pdfBytes, int page) async {
     final temp = await getTemporaryDirectory();
-    final image = File(p.join(
-      temp.path,
-      'quickstudy_ocr_${DateTime.now().microsecondsSinceEpoch}.png',
-    ));
+    final image = File(
+      p.join(
+        temp.path,
+        'quickstudy_ocr_${DateTime.now().microsecondsSinceEpoch}.png',
+      ),
+    );
 
     try {
       int width = 0;
       int height = 0;
-      await for (final raster in Printing.raster(pdfBytes, pages: [page], dpi: _dpi)) {
+      await for (final raster in Printing.raster(
+        pdfBytes,
+        pages: [page],
+        dpi: _dpi,
+      )) {
         width = raster.width;
         height = raster.height;
         await image.writeAsBytes(await raster.toPng(), flush: true);
@@ -125,11 +138,14 @@ class OcrService {
       // نص الكلمة حتى </span> (قد يحوي <strong> أو <em>)
       final end = hocr.indexOf('</span>', m.end);
       if (end < 0) continue;
-      final text = _unescape(hocr.substring(m.end, end).replaceAll(_tags, '')).trim();
+      final text = _unescape(hocr.substring(m.end, end).replaceAll(_tags, ''))
+          .trim();
       if (text.isEmpty) continue;
 
       // كلمات بثقة منخفضة جدًا غالبًا ضجيج من الصورة
-      final conf = int.tryParse(_conf.firstMatch(m.group(6) ?? '')?.group(1) ?? '');
+      final conf = int.tryParse(
+        _conf.firstMatch(m.group(6) ?? '')?.group(1) ?? '',
+      );
       if (conf != null && conf < 15) continue;
 
       final x0 = double.parse(m.group(2)!);
@@ -138,11 +154,13 @@ class OcrService {
       final y1 = double.parse(m.group(5)!);
       if (x1 <= x0 || y1 <= y0) continue;
 
-      words.add(OcrWord(
-        text,
-        Rect.fromLTRB(x0 / width, y0 / height, x1 / width, y1 / height),
-        line < 0 ? 0 : line,
-      ));
+      words.add(
+        OcrWord(
+          text,
+          Rect.fromLTRB(x0 / width, y0 / height, x1 / width, y1 / height),
+          line < 0 ? 0 : line,
+        ),
+      );
     }
     return words;
   }

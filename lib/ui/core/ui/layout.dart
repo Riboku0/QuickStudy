@@ -2,11 +2,25 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_strings.dart';
 
-// اتجاه النص حسب المحتوى (عربي = RTL)
-final RegExp _rtlChars = RegExp(r'[֐-ࣿ]');
+// اتجاه النص حسب المحتوى بقاعدة "أول حرف قوي" (مثل dir=auto في الويب):
+// أول حرف (لا رقم ولا رمز ولا مسافة) يحدد الاتجاه. الكتابات من اليمين:
+// العبرية والعربية (ومنها الفارسية والأردية) والسريانية والثانا والنكو وما يتبعها،
+// وأي لغة أخرى من اليسار.
+final RegExp _firstLetter = RegExp(r'\p{L}', unicode: true);
+final RegExp _rtlLetter = RegExp(
+  r'[֐-ࣿיִ-﷿ﹰ-﻿\u{10800}-\u{10FFF}\u{1E800}-\u{1EFFF}]',
+  unicode: true,
+);
+
+// null إن لم يكن في النص حرف بعد (فارغ أو أرقام فقط)
+TextDirection? strongDirection(String text) {
+  final letter = _firstLetter.firstMatch(text)?.group(0);
+  if (letter == null) return null;
+  return _rtlLetter.hasMatch(letter) ? TextDirection.rtl : TextDirection.ltr;
+}
 
 TextDirection textDirectionFor(String text) =>
-    _rtlChars.hasMatch(text) ? TextDirection.rtl : TextDirection.ltr;
+    strongDirection(text) ?? TextDirection.ltr;
 
 // حد أقصى لعرض المحتوى على الشاشات الكبيرة (تابلت / وضع أفقي)
 class ConstrainedContent extends StatelessWidget {
@@ -43,9 +57,11 @@ String formatDay(DateTime? date, AppStrings s) {
   if (date == null) return s.unknownDate;
 
   final now = DateTime.now();
-  final days = DateTime(now.year, now.month, now.day)
-      .difference(DateTime(date.year, date.month, date.day))
-      .inDays;
+  final days = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).difference(DateTime(date.year, date.month, date.day)).inDays;
 
   if (days == 0) return s.today;
   if (days == 1) return s.yesterday;

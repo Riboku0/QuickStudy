@@ -37,10 +37,19 @@ class FilePickerService {
     ];
   }
 
-  // صورة واحدة من المعرض (غلاف المادة). null عند الإلغاء
+  // صورة واحدة من المعرض (غلاف المادة، صورة على صفحة). null عند الإلغاء
   Future<String?> pickImage() async {
-    final List<PlatformFile> files =
-        await FilePicker.pickFiles(type: FileType.image);
+    final List<PlatformFile> files = await FilePicker.pickFiles(
+      type: FileType.image,
+    );
+    return files.isEmpty ? null : files.first.path;
+  }
+
+  // ملف صوتي واحد من الهاتف (مقطع على صفحة). null عند الإلغاء
+  Future<String?> pickAudio() async {
+    final List<PlatformFile> files = await FilePicker.pickFiles(
+      type: FileType.audio,
+    );
     return files.isEmpty ? null : files.first.path;
   }
 }

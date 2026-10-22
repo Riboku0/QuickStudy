@@ -11,6 +11,8 @@ class ReaderSettings {
     this.background = ReaderBackground.classic,
     this.nightMode = false,
     this.vertical = true,
+    this.customInkColor,
+    this.noteBookmarkHintSeen = false,
   });
 
   static const ReaderSettings defaults = ReaderSettings();
@@ -22,6 +24,9 @@ class ReaderSettings {
   final ReaderBackground background;
   final bool nightMode; // عكس ألوان الصفحات
   final bool vertical; // false = تقليب أفقي صفحة صفحة
+  final int? customInkColor; // اللون السادس في لوحة القلم (من عجلة الألوان)
+  // تلميح زر علامة المذكرة يظهر مرة واحدة فقط
+  final bool noteBookmarkHintSeen;
 
   ReaderSettings copyWith({
     double? brightness,
@@ -29,6 +34,8 @@ class ReaderSettings {
     ReaderBackground? background,
     bool? nightMode,
     bool? vertical,
+    int? customInkColor,
+    bool? noteBookmarkHintSeen,
   }) {
     return ReaderSettings(
       brightness: brightness ?? this.brightness,
@@ -36,6 +43,8 @@ class ReaderSettings {
       background: background ?? this.background,
       nightMode: nightMode ?? this.nightMode,
       vertical: vertical ?? this.vertical,
+      customInkColor: customInkColor ?? this.customInkColor,
+      noteBookmarkHintSeen: noteBookmarkHintSeen ?? this.noteBookmarkHintSeen,
     );
   }
 
@@ -45,6 +54,8 @@ class ReaderSettings {
     'background': background.name,
     'nightMode': nightMode,
     'vertical': vertical,
+    'customInkColor': ?customInkColor,
+    'noteBookmarkHintSeen': noteBookmarkHintSeen,
   };
 
   // أسماء الألوان القديمة المحفوظة ← أقرب لون جديد (حتى لا يضيع اختيار المستخدم)
@@ -76,6 +87,8 @@ class ReaderSettings {
       ),
       nightMode: map['nightMode'] == true,
       vertical: map['vertical'] != false,
+      customInkColor: (map['customInkColor'] as num?)?.toInt(),
+      noteBookmarkHintSeen: map['noteBookmarkHintSeen'] == true,
     );
   }
 }

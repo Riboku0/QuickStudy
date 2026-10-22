@@ -19,6 +19,7 @@ class NoteCard {
     this.w = 0.6,
     this.h = 0.45,
     this.text = '',
+    this.color,
     List<InkStroke>? strokes,
   }) : strokes = strokes ?? [];
 
@@ -29,6 +30,7 @@ class NoteCard {
   double w; // عرض البطاقة نسبة من عرض الصفحة
   double h; // ارتفاع البطاقة نسبة من عرض الصفحة (حتى تبقى مربعة تقريبًا)
   String text;
+  int? color; // لون نص المذكرة (null = لون الحبر الافتراضي)
   final List<InkStroke> strokes; // نقاطها وسماكتها نسبة من البطاقة
 
   Map<String, dynamic> toJson() => {
@@ -39,6 +41,7 @@ class NoteCard {
     'w': w,
     'h': h,
     'text': text,
+    'color': ?color,
     'strokes': [for (final s in strokes) s.toJson()],
   };
 
@@ -50,6 +53,7 @@ class NoteCard {
     w: (json['w'] as num?)?.toDouble() ?? 0.6,
     h: (json['h'] as num?)?.toDouble() ?? 0.45,
     text: (json['text'] as String?) ?? '',
+    color: (json['color'] as num?)?.toInt(),
     strokes: [
       for (final s in (json['strokes'] as List? ?? const []))
         InkStroke.fromJson(s as Map<String, dynamic>),

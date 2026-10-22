@@ -190,10 +190,18 @@ const List<_NoteFont> _fonts = [
   _NoteFont('lemonada', 'ليمونادا', google: 'Lemonada'),
   _NoteFont('harmattan', 'هرمتان', google: 'Harmattan'),
   // لاتينية
-  _NoteFont('serif', 'Serif',
-      family: 'serif', fallback: ['Georgia', 'Times New Roman']),
-  _NoteFont('mono', 'Mono',
-      family: 'monospace', fallback: ['Courier New', 'Menlo']),
+  _NoteFont(
+    'serif',
+    'Serif',
+    family: 'serif',
+    fallback: ['Georgia', 'Times New Roman'],
+  ),
+  _NoteFont(
+    'mono',
+    'Mono',
+    family: 'monospace',
+    fallback: ['Courier New', 'Menlo'],
+  ),
   _NoteFont('playfair', 'Playfair', google: 'Playfair Display'),
   _NoteFont('robotoslab', 'Roboto Slab', google: 'Roboto Slab'),
   _NoteFont('bebas', 'BEBAS', google: 'Bebas Neue'),
@@ -281,47 +289,48 @@ class _Note {
   double opacity;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'page': page,
-        'x': x,
-        'y': y,
-        'w': w,
-        'h': h,
-        'size': size,
-        'text': text,
-        'bg': bg,
-        'cover': bg != null,
-        'color': color,
-        'font': font,
-        'bold': bold,
-        'italic': italic,
-        'underline': underline,
-        'align': align,
-        'rot': rot,
-        'opacity': opacity,
-      };
+    'id': id,
+    'page': page,
+    'x': x,
+    'y': y,
+    'w': w,
+    'h': h,
+    'size': size,
+    'text': text,
+    'bg': bg,
+    'cover': bg != null,
+    'color': color,
+    'font': font,
+    'bold': bold,
+    'italic': italic,
+    'underline': underline,
+    'align': align,
+    'rot': rot,
+    'opacity': opacity,
+  };
 
   factory _Note.fromJson(Map<String, dynamic> json) => _Note(
-        id: json['id'] as String,
-        page: json['page'] as int,
-        x: (json['x'] as num).toDouble(),
-        y: (json['y'] as num).toDouble(),
-        w: (json['w'] as num).toDouble(),
-        size: (json['size'] as num).toDouble(),
-        text: json['text'] as String,
-        // توافق مع الملاحظات القديمة (cover = خلفية بيضاء)
-        bg: (json['bg'] as int?) ??
-            ((json['cover'] as bool?) == true ? 0xFFFFFFFF : null),
-        color: (json['color'] as int?) ?? 0xFF202020,
-        h: (json['h'] as num?)?.toDouble(),
-        font: (json['font'] as String?) ?? 'default',
-        bold: (json['bold'] as bool?) ?? false,
-        italic: (json['italic'] as bool?) ?? false,
-        underline: (json['underline'] as bool?) ?? false,
-        align: (json['align'] as int?) ?? 0,
-        rot: (json['rot'] as num?)?.toDouble() ?? 0,
-        opacity: (json['opacity'] as num?)?.toDouble() ?? 1,
-      );
+    id: json['id'] as String,
+    page: json['page'] as int,
+    x: (json['x'] as num).toDouble(),
+    y: (json['y'] as num).toDouble(),
+    w: (json['w'] as num).toDouble(),
+    size: (json['size'] as num).toDouble(),
+    text: json['text'] as String,
+    // توافق مع الملاحظات القديمة (cover = خلفية بيضاء)
+    bg:
+        (json['bg'] as int?) ??
+        ((json['cover'] as bool?) == true ? 0xFFFFFFFF : null),
+    color: (json['color'] as int?) ?? 0xFF202020,
+    h: (json['h'] as num?)?.toDouble(),
+    font: (json['font'] as String?) ?? 'default',
+    bold: (json['bold'] as bool?) ?? false,
+    italic: (json['italic'] as bool?) ?? false,
+    underline: (json['underline'] as bool?) ?? false,
+    align: (json['align'] as int?) ?? 0,
+    rot: (json['rot'] as num?)?.toDouble() ?? 0,
+    opacity: (json['opacity'] as num?)?.toDouble() ?? 1,
+  );
 }
 
 TextStyle _noteTextStyle(_Note note, double fontSize) {
@@ -439,11 +448,7 @@ void _paintNotes(Canvas canvas, double pw, double ph, List<_Note> notes) {
   }
 }
 
-Future<Uint8List> _picturePng(
-  ui.Picture picture,
-  int width,
-  int height,
-) async {
+Future<Uint8List> _picturePng(ui.Picture picture, int width, int height) async {
   final image = await picture.toImage(width, height);
   final data = await image.toByteData(format: ui.ImageByteFormat.png);
 
@@ -518,7 +523,10 @@ Future<Uint8List> _exportImage(Uint8List bytes, List<_Note> notes) async {
   final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, w, h));
 
   canvas.drawImage(
-      image, Offset.zero, Paint()..filterQuality = FilterQuality.high);
+    image,
+    Offset.zero,
+    Paint()..filterQuality = FilterQuality.high,
+  );
   _paintNotes(canvas, w, h, notes);
 
   final png = await _picturePng(recorder.endRecording(), w.round(), h.round());
@@ -559,8 +567,9 @@ class _InputDialog extends StatefulWidget {
 }
 
 class _InputDialogState extends State<_InputDialog> {
-  late final TextEditingController _input =
-      TextEditingController(text: widget.initial);
+  late final TextEditingController _input = TextEditingController(
+    text: widget.initial,
+  );
 
   @override
   void dispose() {
@@ -577,25 +586,24 @@ class _InputDialogState extends State<_InputDialog> {
       content: TextField(
         controller: _input,
         autofocus: true,
-        keyboardType:
-            widget.number ? TextInputType.number : TextInputType.multiline,
+        keyboardType: widget.number
+            ? TextInputType.number
+            : TextInputType.multiline,
         minLines: widget.number ? 1 : 2,
         maxLines: widget.number ? 1 : 6,
         textCapitalization: TextCapitalization.sentences,
         onSubmitted: widget.number ? (_) => _submit() : null,
         // رقم صفحة: أرقام صحيحة فقط (لا فاصلة عشرية)
-        inputFormatters:
-            widget.number ? [FilteringTextInputFormatter.digitsOnly] : null,
+        inputFormatters: widget.number
+            ? [FilteringTextInputFormatter.digitsOnly]
+            : null,
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: Text(widget.cancelLabel),
         ),
-        TextButton(
-          onPressed: _submit,
-          child: Text(widget.confirmLabel),
-        ),
+        TextButton(onPressed: _submit, child: Text(widget.confirmLabel)),
       ],
     );
   }
@@ -631,8 +639,12 @@ class _ColorDialogState extends State<_ColorDialog> {
     _hsv = HSVColor.fromColor(Color(widget.initial ?? 0xFF1A73E8));
   }
 
-  Widget _slider(String label, double value, double max,
-      ValueChanged<double> onChanged) {
+  Widget _slider(
+    String label,
+    double value,
+    double max,
+    ValueChanged<double> onChanged,
+  ) {
     return Row(
       children: [
         SizedBox(width: 18, child: Text(label)),
@@ -686,12 +698,24 @@ class _ColorDialogState extends State<_ColorDialog> {
               ],
             ),
             const SizedBox(height: 8),
-            _slider('H', _hsv.hue, 360,
-                (v) => setState(() => _hsv = _hsv.withHue(v))),
-            _slider('S', _hsv.saturation, 1,
-                (v) => setState(() => _hsv = _hsv.withSaturation(v))),
-            _slider('V', _hsv.value, 1,
-                (v) => setState(() => _hsv = _hsv.withValue(v))),
+            _slider(
+              'H',
+              _hsv.hue,
+              360,
+              (v) => setState(() => _hsv = _hsv.withHue(v)),
+            ),
+            _slider(
+              'S',
+              _hsv.saturation,
+              1,
+              (v) => setState(() => _hsv = _hsv.withSaturation(v)),
+            ),
+            _slider(
+              'V',
+              _hsv.value,
+              1,
+              (v) => setState(() => _hsv = _hsv.withValue(v)),
+            ),
           ],
         ),
       ),
@@ -755,10 +779,10 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
 
   // الهامش الجانبي حسب إعدادات القراءة
   double get _hPad => switch (_reader.settings.margin) {
-        ReaderMargin.none => 0,
-        ReaderMargin.standard => 12,
-        ReaderMargin.wide => 32,
-      };
+    ReaderMargin.none => 0,
+    ReaderMargin.standard => 12,
+    ReaderMargin.wide => 32,
+  };
   static const double _gap = 12;
   static const double _ov = 56; // هامش منطقة المقابض حول الصندوق
 
@@ -785,7 +809,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   BookmarkRepository? _bookmarks;
   PageTextCache? _text;
   final Map<int, List<TextMark>> _marks = {};
-  final GlobalKey _pagesKey = GlobalKey(); // منطقة الصفحات (لتحويل إحداثيات المقابض)
+  final GlobalKey _pagesKey =
+      GlobalKey(); // منطقة الصفحات (لتحويل إحداثيات المقابض)
   Rect? _pagedRect; // مكان الصفحة على الشاشة في القراءة الأفقية
   int? _selPage;
   int _selStart = 0;
@@ -926,9 +951,7 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   Future<File> _notesFile() async {
     final appDirectory = await getApplicationDocumentsDirectory();
 
-    final directory = Directory(
-      p.join(appDirectory.path, 'quickstudy_notes'),
-    );
+    final directory = Directory(p.join(appDirectory.path, 'quickstudy_notes'));
 
     if (!await directory.exists()) {
       await directory.create(recursive: true);
@@ -1167,7 +1190,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
 
   // حجم الصفحة على الشاشة في الوضع الحالي (عامودي أو أفقي)
   double get _pw => _vertical ? _pageWidth : (_pagedRect?.width ?? _pageWidth);
-  double get _ph => _vertical ? _pageHeight : (_pagedRect?.height ?? _pageHeight);
+  double get _ph =>
+      _vertical ? _pageHeight : (_pagedRect?.height ?? _pageHeight);
 
   void _deleteNote(_Note note) {
     setState(() {
@@ -1216,11 +1240,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   }) async {
     final result = await showDialog<_ColorChoice>(
       context: context,
-      builder: (_) => _ColorDialog(
-        title: title,
-        initial: initial,
-        allowNone: allowNone,
-      ),
+      builder: (_) =>
+          _ColorDialog(title: title, initial: initial, allowNone: allowNone),
     );
 
     if (result == null) return;
@@ -1255,8 +1276,9 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
 
     setState(() {
       if (details.pointerCount >= 2) {
-        note.size =
-            (_noteStartSize * details.scale).clamp(0.012, 0.3).toDouble();
+        note.size = (_noteStartSize * details.scale)
+            .clamp(0.012, 0.3)
+            .toDouble();
         note.w = (_noteStartW * details.scale).clamp(0.1, 1.5).toDouble();
 
         final startH = _noteStartH;
@@ -1469,7 +1491,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   }
 
   Future<void> _withExport(
-      Future<void> Function(_ExportResult r) action) async {
+    Future<void> Function(_ExportResult r) action,
+  ) async {
     if (_exporting) return;
 
     setState(() {
@@ -1486,6 +1509,7 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
       if (mounted) setState(() => _exporting = false);
     }
   }
+
   Future<void> _saveCopy() {
     return _withExport((r) async {
       // file_picker 11+ : الدوال أصبحت static (لا يوجد FilePicker.platform)
@@ -1500,6 +1524,7 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
       _showInfo(AppStrings.of(context).savedSuccessfully);
     });
   }
+
   Future<void> _shareCopy() {
     // الحصول على المقاس قبل أي await (مطلوب لنافذة المشاركة على iPad)
     final screen = MediaQuery.of(context).size;
@@ -1622,7 +1647,10 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
 
   Future<void> _saveMarks() async {
     try {
-      final all = _marks.values.expand((l) => l).map((m) => m.toJson()).toList();
+      final all = _marks.values
+          .expand((l) => l)
+          .map((m) => m.toJson())
+          .toList();
       final file = await _marksFile();
       await file.writeAsString(jsonEncode(all), flush: true);
     } catch (e) {
@@ -1656,13 +1684,19 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
       if (i < 0 || i >= _pageCount) return null;
       final r = _pageRect(i)!;
       if (!r.contains(local)) return null;
-      return (i, Offset((local.dx - r.left) / r.width, (local.dy - r.top) / r.height));
+      return (
+        i,
+        Offset((local.dx - r.left) / r.width, (local.dy - r.top) / r.height),
+      );
     }
     // الأفقي: المستطيل بعد الزوم، فالموضع صحيح والصفحة مكبرة أيضًا
     final i = _currentPage.value - 1;
     final r = _pageRect(i);
     if (r == null || !r.contains(local)) return null;
-    return (i, Offset((local.dx - r.left) / r.width, (local.dy - r.top) / r.height));
+    return (
+      i,
+      Offset((local.dx - r.left) / r.width, (local.dy - r.top) / r.height),
+    );
   }
 
   TextMark? _markAt(int page, Offset p) {
@@ -1686,13 +1720,15 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
 
   List<Rect>? get _selectionRects {
     final words = _selWords;
-    if (words != null && words.isNotEmpty) return rectsFor(words, _selStart, _selEnd);
+    if (words != null && words.isNotEmpty)
+      return rectsFor(words, _selStart, _selEnd);
     return _selectedMark?.rects;
   }
 
   String get _selectionText {
     final words = _selWords;
-    if (words != null && words.isNotEmpty) return textFor(words, _selStart, _selEnd);
+    if (words != null && words.isNotEmpty)
+      return textFor(words, _selStart, _selEnd);
     return _selectedMark?.text ?? '';
   }
 
@@ -1754,7 +1790,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
         final top = r.top + last.top * r.height;
         final right = r.left + last.right * r.width;
         final radius = math.max(3.5, last.height * r.height * 0.18);
-        if ((local - Offset(right + radius, top)).distance <= touch) return mark;
+        if ((local - Offset(right + radius, top)).distance <= touch)
+          return mark;
       }
     }
     return null;
@@ -1907,14 +1944,14 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
       ),
       builder: (sheetContext) {
         Widget item(String id, IconData icon, String label) => ListTile(
-              leading: Icon(icon, color: c.ink),
-              title: Text(
-                label,
-                style: TextStyle(color: c.ink, fontWeight: FontWeight.w600),
-              ),
-              minTileHeight: 52,
-              onTap: () => Navigator.pop(sheetContext, id),
-            );
+          leading: Icon(icon, color: c.ink),
+          title: Text(
+            label,
+            style: TextStyle(color: c.ink, fontWeight: FontWeight.w600),
+          ),
+          minTileHeight: 52,
+          onTap: () => Navigator.pop(sheetContext, id),
+        );
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1948,7 +1985,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
       'deepl' => 'https://www.deepl.com/translator#auto/$target/$q',
       'chatgpt' =>
         'https://chatgpt.com/?q=${Uri.encodeComponent(s.chatGptPrompt(clipped))}',
-      _ => 'https://translate.google.com/?sl=auto&tl=$target&text=$q&op=translate',
+      _ =>
+        'https://translate.google.com/?sl=auto&tl=$target&text=$q&op=translate',
     };
 
     var opened = false;
@@ -1996,15 +2034,23 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
     final r = _pageRect(page);
     if (r == null) return const [];
 
-    Offset toScreen(Offset n) => Offset(r.left + n.dx * r.width, r.top + n.dy * r.height);
+    Offset toScreen(Offset n) =>
+        Offset(r.left + n.dx * r.width, r.top + n.dy * r.height);
 
     final first = rects.first;
     final last = rects.last;
     final words = _selWords;
-    final rtl = words != null && words.isNotEmpty && words[math.min(_selStart, words.length - 1)].rtl;
+    final rtl =
+        words != null &&
+        words.isNotEmpty &&
+        words[math.min(_selStart, words.length - 1)].rtl;
 
-    final startPoint = toScreen(Offset(rtl ? first.right : first.left, first.bottom));
-    final endPoint = toScreen(Offset(rtl ? last.left : last.right, last.bottom));
+    final startPoint = toScreen(
+      Offset(rtl ? first.right : first.left, first.bottom),
+    );
+    final endPoint = toScreen(
+      Offset(rtl ? last.left : last.right, last.bottom),
+    );
 
     const h = SelectionHandle.size;
     final s = AppStrings.of(context);
@@ -2014,33 +2060,39 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
     final top = toScreen(first.topLeft).dy;
     final bottom = toScreen(last.bottomRight).dy;
     final menuWidth = math.min(360.0, area.maxWidth - 24);
-    final menuLeft = ((area.maxWidth - menuWidth) / 2).clamp(12.0, area.maxWidth);
+    final menuLeft = ((area.maxWidth - menuWidth) / 2).clamp(
+      12.0,
+      area.maxWidth,
+    );
     final menuTop = top - SelectionMenu.height - 14 >= 8
         ? top - SelectionMenu.height - 14
         : math.min(bottom + h + 10, area.maxHeight - SelectionMenu.height - 8);
 
     Widget handle(bool start, Offset at) => Positioned(
-          left: at.dx - (start != rtl ? h : 0),
-          top: at.dy,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanUpdate: (d) => _dragHandle(start, d.globalPosition),
-            onPanEnd: (_) {
-              if (_selectedMark != null) _saveMarks();
-            },
-            child: Transform.flip(
-              flipX: start != rtl,
-              child: const SelectionHandle(),
-            ),
-          ),
-        );
+      left: at.dx - (start != rtl ? h : 0),
+      top: at.dy,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (d) => _dragHandle(start, d.globalPosition),
+        onPanEnd: (_) {
+          if (_selectedMark != null) _saveMarks();
+        },
+        child: Transform.flip(
+          flipX: start != rtl,
+          child: const SelectionHandle(),
+        ),
+      ),
+    );
 
     return [
       if (words != null) handle(true, startPoint),
       if (words != null) handle(false, endPoint),
       Positioned(
         left: menuLeft,
-        top: menuTop.clamp(8.0, math.max(8.0, area.maxHeight - SelectionMenu.height)),
+        top: menuTop.clamp(
+          8.0,
+          math.max(8.0, area.maxHeight - SelectionMenu.height),
+        ),
         width: menuWidth,
         child: SelectionMenu(
           style: _markStyle,
@@ -2074,7 +2126,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   }
 
   void _reportPage() {
-    if (_pageCount > 0) widget.onPageChanged?.call(_currentPage.value, _pageCount);
+    if (_pageCount > 0)
+      widget.onPageChanged?.call(_currentPage.value, _pageCount);
     _schedulePrefetch();
   }
 
@@ -2116,10 +2169,7 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
 
   void _zoomByButton(double delta) {
     setState(() {
-      _zoomAround(
-        _zoom + delta,
-        Offset(_viewWidth / 2, _viewHeight / 2),
-      );
+      _zoomAround(_zoom + delta, Offset(_viewWidth / 2, _viewHeight / 2));
       _clampScroll();
     });
     _updateCurrentPage();
@@ -2161,10 +2211,7 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
     if (velocity.abs() < 80) return;
 
     _fling.animateWith(
-      ClampingScrollSimulation(
-        position: _scrollY,
-        velocity: -velocity,
-      ),
+      ClampingScrollSimulation(position: _scrollY, velocity: -velocity),
     );
   }
 
@@ -2251,40 +2298,41 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
         });
       },
       child: Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
         backgroundColor: bg,
-        foregroundColor: onBg,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          widget.fileName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          if (ready) ...[
-            if (_pageCount > 1)
-              // رقم الصفحة نفسه زر "اذهب إلى صفحة" (يوفّر مكانًا لزر العلامة)
-              ValueListenableBuilder<int>(
-                valueListenable: _currentPage,
-                builder: (_, page, _) => Tooltip(
-                  message: AppStrings.of(context).goToPage,
-                  child: InkWell(
-                    onTap: _goToPage,
-                    borderRadius: BorderRadius.circular(10),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 44),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Center(
-                          widthFactor: 1,
-                          child: Text(
-                            '$page / $_pageCount',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+        appBar: AppBar(
+          backgroundColor: bg,
+          foregroundColor: onBg,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          title: Text(
+            widget.fileName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+          actions: [
+            if (ready) ...[
+              if (_pageCount > 1)
+                // رقم الصفحة نفسه زر "اذهب إلى صفحة" (يوفّر مكانًا لزر العلامة)
+                ValueListenableBuilder<int>(
+                  valueListenable: _currentPage,
+                  builder: (_, page, _) => Tooltip(
+                    message: AppStrings.of(context).goToPage,
+                    child: InkWell(
+                      onTap: _goToPage,
+                      borderRadius: BorderRadius.circular(10),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Center(
+                            widthFactor: 1,
+                            child: Text(
+                              '$page / $_pageCount',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -2292,91 +2340,94 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
                     ),
                   ),
                 ),
+              // علامة مرجعية للصفحة الحالية (ممتلئة إن كانت محفوظة)
+              if (_bookmarks != null)
+                ListenableBuilder(
+                  listenable: Listenable.merge([_bookmarks, _currentPage]),
+                  builder: (context, _) {
+                    final saved =
+                        _bookmarks!.pageBookmark(
+                          widget.fileId,
+                          _currentPage.value,
+                        ) !=
+                        null;
+                    final s = AppStrings.of(context);
+                    return IconButton(
+                      tooltip: saved ? s.removeBookmark : s.addBookmark,
+                      onPressed: _togglePageBookmark,
+                      icon: AppIcon(
+                        saved ? AppIcons.bookmarkSaved : AppIcons.bookmark,
+                        size: 23,
+                        strokeWidth: 1.9,
+                      ),
+                    );
+                  },
+                ),
+              IconButton(
+                tooltip: AppStrings.of(context).readerSettings,
+                onPressed: _openReaderSettings,
+                icon: const Icon(Icons.tune),
               ),
-            // علامة مرجعية للصفحة الحالية (ممتلئة إن كانت محفوظة)
-            if (_bookmarks != null)
-              ListenableBuilder(
-                listenable: Listenable.merge([_bookmarks, _currentPage]),
-                builder: (context, _) {
-                  final saved = _bookmarks!.pageBookmark(
-                        widget.fileId,
-                        _currentPage.value,
-                      ) !=
-                      null;
-                  final s = AppStrings.of(context);
-                  return IconButton(
-                    tooltip: saved ? s.removeBookmark : s.addBookmark,
-                    onPressed: _togglePageBookmark,
-                    icon: AppIcon(
-                      saved ? AppIcons.bookmarkSaved : AppIcons.bookmark,
-                      size: 23,
-                      strokeWidth: 1.9,
-                    ),
-                  );
+              // القلم: الكتابة على الصفحة في الوضعين
+              IconButton(
+                tooltip: _editMode
+                    ? AppStrings.of(context).finishEditing
+                    : AppStrings.of(context).addEditText,
+                onPressed: () {
+                  _finishEditing(); // يحفظ ما كُتب قبل الخروج
+                  _resetPagedZoom(); // الكتابة على المقاس الطبيعي
+                  setState(() {
+                    _editMode = !_editMode;
+                    _selectedId = null;
+                    // لا تحديد نص أثناء الكتابة على الصفحة
+                    _selPage = null;
+                    _selWords = null;
+                    _selMarkId = null;
+                  });
                 },
-              ),
-            IconButton(
-              tooltip: AppStrings.of(context).readerSettings,
-              onPressed: _openReaderSettings,
-              icon: const Icon(Icons.tune),
-            ),
-            // القلم: الكتابة على الصفحة في الوضعين
-            IconButton(
-              tooltip: _editMode ? AppStrings.of(context).finishEditing : AppStrings.of(context).addEditText,
-              onPressed: () {
-                _finishEditing(); // يحفظ ما كُتب قبل الخروج
-                _resetPagedZoom(); // الكتابة على المقاس الطبيعي
-                setState(() {
-                _editMode = !_editMode;
-                _selectedId = null;
-                // لا تحديد نص أثناء الكتابة على الصفحة
-                _selPage = null;
-                _selWords = null;
-                _selMarkId = null;
-                });
-              },
-              icon: AppIcon(
-                _editMode ? AppIcons.correct : AppIcons.pen,
-                size: 24,
-                strokeWidth: 1.9,
-              ),
-            ),
-            PopupMenuButton<String>(
-              tooltip: AppStrings.of(context).saveShare,
-              enabled: !_exporting,
-              icon: const Icon(Icons.ios_share),
-              onSelected: (value) => value == 'save' ? _saveCopy() : _shareCopy(),
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 'save',
-                  child: Row(
-                    children: [
-                      Icon(Icons.save_alt, size: 20),
-                      SizedBox(width: 12),
-                      Text(AppStrings.of(context).saveCopy),
-                    ],
-                  ),
+                icon: AppIcon(
+                  _editMode ? AppIcons.correct : AppIcons.pen,
+                  size: 24,
+                  strokeWidth: 1.9,
                 ),
-                PopupMenuItem(
-                  value: 'share',
-                  child: Row(
-                    children: [
-                      Icon(Icons.share_outlined, size: 20),
-                      SizedBox(width: 12),
-                      Text(AppStrings.of(context).share),
-                    ],
+              ),
+              PopupMenuButton<String>(
+                tooltip: AppStrings.of(context).saveShare,
+                enabled: !_exporting,
+                icon: const Icon(Icons.ios_share),
+                onSelected: (value) =>
+                    value == 'save' ? _saveCopy() : _shareCopy(),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'save',
+                    child: Row(
+                      children: [
+                        Icon(Icons.save_alt, size: 20),
+                        SizedBox(width: 12),
+                        Text(AppStrings.of(context).saveCopy),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                  PopupMenuItem(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        Icon(Icons.share_outlined, size: 20),
+                        SizedBox(width: 12),
+                        Text(AppStrings.of(context).share),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildError()
-              : _buildBody(),
+        ),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? _buildError()
+            : _buildBody(),
       ),
     );
   }
@@ -2424,61 +2475,61 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
         Expanded(
           child: LayoutBuilder(
             builder: (context, area) => Stack(
-            key: _pagesKey,
-            children: [
-              _vertical ? _buildPages() : _buildPaged(),
-              // السطوع: طبقة سوداء شفافة لا تلتقط اللمس
-              if (_reader.settings.brightness < 1)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: ColoredBox(
-                      color: Colors.black.withValues(
-                        alpha: (1 - _reader.settings.brightness) * 0.85,
+              key: _pagesKey,
+              children: [
+                _vertical ? _buildPages() : _buildPaged(),
+                // السطوع: طبقة سوداء شفافة لا تلتقط اللمس
+                if (_reader.settings.brightness < 1)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: Colors.black.withValues(
+                          alpha: (1 - _reader.settings.brightness) * 0.85,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              // أزرار الزوم في الوضعين
-              Positioned(
-                right: 12,
-                // فوق شريط التنقل في الهاتف
-                bottom: 16 + MediaQuery.paddingOf(context).bottom,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FloatingActionButton.small(
-                      heroTag: null,
-                      backgroundColor: _chrome.fab,
-                      foregroundColor: _chrome.onFab,
-                      onPressed: () =>
-                          _vertical ? _zoomByButton(0.5) : _zoomPaged(0.5),
-                      child: const Icon(Icons.add),
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: null,
-                      backgroundColor: _chrome.fab,
-                      foregroundColor: _chrome.onFab,
-                      onPressed: () =>
-                          _vertical ? _zoomByButton(-0.5) : _zoomPaged(-0.5),
-                      child: const Icon(Icons.remove),
-                    ),
-                  ],
-                ),
-              ),
-              // تحديد النص: المقبضان والقائمة
-              ..._buildSelectionOverlay(area),
-              if (_exporting)
-                const Positioned.fill(
-                  child: AbsorbPointer(
-                    child: ColoredBox(
-                      color: Color(0x66000000),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
+                // أزرار الزوم في الوضعين
+                Positioned(
+                  right: 12,
+                  // فوق شريط التنقل في الهاتف
+                  bottom: 16 + MediaQuery.paddingOf(context).bottom,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FloatingActionButton.small(
+                        heroTag: null,
+                        backgroundColor: _chrome.fab,
+                        foregroundColor: _chrome.onFab,
+                        onPressed: () =>
+                            _vertical ? _zoomByButton(0.5) : _zoomPaged(0.5),
+                        child: const Icon(Icons.add),
+                      ),
+                      const SizedBox(height: 8),
+                      FloatingActionButton.small(
+                        heroTag: null,
+                        backgroundColor: _chrome.fab,
+                        foregroundColor: _chrome.onFab,
+                        onPressed: () =>
+                            _vertical ? _zoomByButton(-0.5) : _zoomPaged(-0.5),
+                        child: const Icon(Icons.remove),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
+                // تحديد النص: المقبضان والقائمة
+                ..._buildSelectionOverlay(area),
+                if (_exporting)
+                  const Positioned.fill(
+                    child: AbsorbPointer(
+                      child: ColoredBox(
+                        color: Color(0x66000000),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         if (_editMode) _buildToolbar(),
@@ -2489,8 +2540,7 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   // ------------------------- الشريط السفلي -------------------------
 
   // ألوان واجهة القراءة تتبع الليلي والنهاري
-  ReaderChrome get _chrome =>
-      ReaderChrome(dark: _paperIsDark, paper: _paper);
+  ReaderChrome get _chrome => ReaderChrome(dark: _paperIsDark, paper: _paper);
 
   // ثيم لشريط القلم: الأيقونات والنصوص والشرائح بألوان الليلي عند الحاجة
   ThemeData _chromeTheme(BuildContext context) {
@@ -2519,16 +2569,17 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
     return Theme(
       data: _chromeTheme(context),
       child: Material(
-      color: _chrome.surface,
-      elevation: 12,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child:
-              note == null ? _buildToolbarHint() : _buildToolbarControls(note),
+        color: _chrome.surface,
+        elevation: 12,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: note == null
+                ? _buildToolbarHint()
+                : _buildToolbarControls(note),
+          ),
         ),
-      ),
       ),
     );
   }
@@ -2652,30 +2703,42 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _toggle(Icons.format_bold, note.bold,
-                      () => _mutate((n) => n.bold = !n.bold), AppStrings.of(context).bold),
-                  _toggle(Icons.format_italic, note.italic,
-                      () => _mutate((n) => n.italic = !n.italic), AppStrings.of(context).italic),
                   _toggle(
-                      Icons.format_underlined,
-                      note.underline,
-                      () => _mutate((n) => n.underline = !n.underline),
-                      AppStrings.of(context).underline),
+                    Icons.format_bold,
+                    note.bold,
+                    () => _mutate((n) => n.bold = !n.bold),
+                    AppStrings.of(context).bold,
+                  ),
                   _toggle(
-                      Icons.format_align_left,
-                      note.align == 1,
-                      () => _mutate((n) => n.align = n.align == 1 ? 0 : 1),
-                      AppStrings.of(context).alignLeft),
+                    Icons.format_italic,
+                    note.italic,
+                    () => _mutate((n) => n.italic = !n.italic),
+                    AppStrings.of(context).italic,
+                  ),
                   _toggle(
-                      Icons.format_align_center,
-                      note.align == 2,
-                      () => _mutate((n) => n.align = n.align == 2 ? 0 : 2),
-                      AppStrings.of(context).alignCenter),
+                    Icons.format_underlined,
+                    note.underline,
+                    () => _mutate((n) => n.underline = !n.underline),
+                    AppStrings.of(context).underline,
+                  ),
                   _toggle(
-                      Icons.format_align_right,
-                      note.align == 3,
-                      () => _mutate((n) => n.align = n.align == 3 ? 0 : 3),
-                      AppStrings.of(context).alignRight),
+                    Icons.format_align_left,
+                    note.align == 1,
+                    () => _mutate((n) => n.align = n.align == 1 ? 0 : 1),
+                    AppStrings.of(context).alignLeft,
+                  ),
+                  _toggle(
+                    Icons.format_align_center,
+                    note.align == 2,
+                    () => _mutate((n) => n.align = n.align == 2 ? 0 : 2),
+                    AppStrings.of(context).alignCenter,
+                  ),
+                  _toggle(
+                    Icons.format_align_right,
+                    note.align == 3,
+                    () => _mutate((n) => n.align = n.align == 3 ? 0 : 3),
+                    AppStrings.of(context).alignRight,
+                  ),
                   _toggle(
                     Icons.format_color_fill,
                     note.bg != null,
@@ -2703,8 +2766,11 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
                     tooltip: AppStrings.of(context).delete,
                     visualDensity: VisualDensity.compact,
                     onPressed: () => _deleteNote(note),
-                    icon:
-                        const Icon(Icons.delete_outline, size: 22, color: red),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 22,
+                      color: red,
+                    ),
                   ),
                   TextButton(
                     onPressed: () => setState(() => _selectedId = null),
@@ -2743,18 +2809,23 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.black26),
-                          gradient: const SweepGradient(colors: [
-                            Color(0xFFFF0000),
-                            Color(0xFFFFFF00),
-                            Color(0xFF00FF00),
-                            Color(0xFF00FFFF),
-                            Color(0xFF0000FF),
-                            Color(0xFFFF00FF),
-                            Color(0xFFFF0000),
-                          ]),
+                          gradient: const SweepGradient(
+                            colors: [
+                              Color(0xFFFF0000),
+                              Color(0xFFFFFF00),
+                              Color(0xFF00FF00),
+                              Color(0xFF00FFFF),
+                              Color(0xFF0000FF),
+                              Color(0xFFFF00FF),
+                              Color(0xFFFF0000),
+                            ],
+                          ),
                         ),
-                        child: const Icon(Icons.add,
-                            size: 16, color: Colors.white),
+                        child: const Icon(
+                          Icons.add,
+                          size: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     );
                   }
@@ -2795,14 +2866,33 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
             ),
 
             // الحجم / الشفافية / الدوران
-            _sliderRow(Icons.format_size, AppStrings.of(context).size, note.size, 0.012, 0.3, (v) {
-              _defSize = v;
-              _mutate((n) => n.size = v, save: false);
-            }),
-            _sliderRow(Icons.opacity, AppStrings.of(context).opacity, note.opacity, 0.1, 1.0,
-                (v) => _mutate((n) => n.opacity = v, save: false)),
-            _sliderRow(Icons.rotate_right, AppStrings.of(context).rotation, note.rot, -math.pi,
-                math.pi, (v) => _mutate((n) => n.rot = v, save: false)),
+            _sliderRow(
+              Icons.format_size,
+              AppStrings.of(context).size,
+              note.size,
+              0.012,
+              0.3,
+              (v) {
+                _defSize = v;
+                _mutate((n) => n.size = v, save: false);
+              },
+            ),
+            _sliderRow(
+              Icons.opacity,
+              AppStrings.of(context).opacity,
+              note.opacity,
+              0.1,
+              1.0,
+              (v) => _mutate((n) => n.opacity = v, save: false),
+            ),
+            _sliderRow(
+              Icons.rotate_right,
+              AppStrings.of(context).rotation,
+              note.rot,
+              -math.pi,
+              math.pi,
+              (v) => _mutate((n) => n.rot = v, save: false),
+            ),
           ],
         ),
       ),
@@ -2815,31 +2905,19 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   // الليلي موحّد وهادئ (رمادي دافئ ونص بيج) بدل الأسود والأبيض الحادين،
   // وألوان الخلفية تعمل في النهاري فقط.
 
-  // الليلي بلون الثيم الليلي (كحلي هادئ من خلفية المكتبة) ونص فاتح مريح
-  static const Color _nightPaper = Color(0xFF222733);
-  static const Color _nightInk = Color(0xFFD5DAE2);
-  static const Color _dayInk = Color(0xFF26221C);
-  static const Color _lightInk = Color(0xFFE6E0D4); // على خلفية نهارية داكنة
+  // الخلفية ولون نصها من مكان واحد (ReaderPaper في reader_settings_sheet.dart)
+  Color get _paper => _reader.settings.paperColor;
 
-  Color get _paper {
-    final r = _reader.settings;
-    return r.nightMode ? _nightPaper : r.background.color;
-  }
-
-  Color get _ink {
-    final r = _reader.settings;
-    if (r.nightMode) return _nightInk;
-    return r.background.isDark ? _lightInk : _dayInk;
-  }
+  Color get _ink => _reader.settings.inkColor;
 
   // كل قناة لونية: 0 ← الحبر، 255 ← الورق (خط مستقيم بينهما)
   ColorFilter get _pageFilter {
     final ink = _ink;
     final paper = _paper;
     List<double> row(double i, double p, int index) => [
-          for (var c = 0; c < 4; c++) c == index ? (p - i) : 0.0,
-          i * 255,
-        ];
+      for (var c = 0; c < 4; c++) c == index ? (p - i) : 0.0,
+      i * 255,
+    ];
     return ColorFilter.matrix(<double>[
       ...row(ink.r, paper.r, 0),
       ...row(ink.g, paper.g, 1),
@@ -2849,25 +2927,26 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
   }
 
   // الورق داكن (الليلي أو لون داكن): الملاحظات الداكنة تُعرض فاتحة
-  bool get _paperIsDark =>
-      _reader.settings.nightMode || _reader.settings.background.isDark;
+  bool get _paperIsDark => _reader.settings.darkPaper;
 
   // طبقة التحديدات لصفحة واحدة (لا تلتقط اللمس)
   Widget _marksLayer(int page) => IgnorePointer(
-        child: CustomPaint(
-          size: Size.infinite,
-          painter: MarksPainter(
-            marks: List.of(_marks[page] ?? const <TextMark>[]),
-            selection: page == _selPage ? _selectionRects : null,
-          ),
-        ),
-      );
+    child: CustomPaint(
+      size: Size.infinite,
+      painter: MarksPainter(
+        marks: List.of(_marks[page] ?? const <TextMark>[]),
+        selection: page == _selPage ? _selectionRects : null,
+      ),
+    ),
+  );
 
   // ------------------------- القراءة الأفقية (صفحة صفحة) -------------------------
 
   Widget _buildPaged() {
     final source = _source!;
-    final pager = _pager ??= PageController(initialPage: _currentPage.value - 1);
+    final pager = _pager ??= PageController(
+      initialPage: _currentPage.value - 1,
+    );
     // في العربية تُقلب الصفحات من اليمين إلى اليسار
     final reverse = Directionality.of(context) == TextDirection.rtl;
 
@@ -2876,7 +2955,10 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
         // الصفحة كاملة داخل الشاشة مع الهامش
         final pad = _hPad;
         final maxW = math.max(0.0, constraints.maxWidth - pad * 2);
-        final maxH = math.max(0.0, constraints.maxHeight - math.max(pad, 12) * 2);
+        final maxH = math.max(
+          0.0,
+          constraints.maxHeight - math.max(pad, 12) * 2,
+        );
         final w = math.min(maxW, maxH / _aspectRatio);
         final h = w * _aspectRatio;
         // مكان الصفحة على الشاشة (لتحديد النص)
@@ -2890,78 +2972,80 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
         return Stack(
           fit: StackFit.expand,
           children: [
-        Listener(
-          // إصبعان على الشاشة: نوقف التقليب حتى لا يتنافس مع الزوم
-          onPointerDown: (_) => _countPointers(1),
-          onPointerUp: (_) => _countPointers(-1),
-          onPointerCancel: (_) => _countPointers(-1),
-          child: GestureDetector(
-          onLongPressStart: (d) => _onLongPress(d.localPosition),
-          onTapUp: (d) => _onTapPages(d.localPosition),
-          child: PageView.builder(
-          controller: pager,
-          // لا تقليب أثناء الكتابة أو الزوم
-          physics: _pagerLocked ? const NeverScrollableScrollPhysics() : null,
-          reverse: reverse,
-          itemCount: _pageCount,
-          onPageChanged: (i) {
-            _clearSelection();
-            _resetPagedZoom();
-            _currentPage.value = i + 1;
-          },
-          itemBuilder: (context, i) {
-            final page = Center(
-              child: SizedBox(
-                width: w,
-                height: h,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _PageTile(
-                  key: ValueKey('paged-$i'),
-                  index: i,
-                  source: source,
-                  notes: _notes[i] ?? const [],
-                  editMode: _editMode,
-                  onTapPage: _addNote,
-                  onTapNote: _onTapNote,
-                  onScaleStartNote: _noteScaleStart,
-                  onScaleUpdateNote: _noteScaleUpdate,
-                  onScaleEndNote: _saveNotes,
-                  editingId: _editingId,
-                  inlineText: _inlineText,
-                  inlineFocus: _inlineFocus,
-                  onInlineChanged: _onInlineChanged,
-                  onInlineDrag: _dragEditingNote,
-                // لون الورق على صورة الصفحة فقط، والملاحظات بألوانها
-                  pageFilter: _pageFilter,
-                  paperColor: _paper,
-                  darkPaper: _paperIsDark,
-                ),
-                    _marksLayer(i),
-                  ],
+            Listener(
+              // إصبعان على الشاشة: نوقف التقليب حتى لا يتنافس مع الزوم
+              onPointerDown: (_) => _countPointers(1),
+              onPointerUp: (_) => _countPointers(-1),
+              onPointerCancel: (_) => _countPointers(-1),
+              child: GestureDetector(
+                onLongPressStart: (d) => _onLongPress(d.localPosition),
+                onTapUp: (d) => _onTapPages(d.localPosition),
+                child: PageView.builder(
+                  controller: pager,
+                  // لا تقليب أثناء الكتابة أو الزوم
+                  physics: _pagerLocked
+                      ? const NeverScrollableScrollPhysics()
+                      : null,
+                  reverse: reverse,
+                  itemCount: _pageCount,
+                  onPageChanged: (i) {
+                    _clearSelection();
+                    _resetPagedZoom();
+                    _currentPage.value = i + 1;
+                  },
+                  itemBuilder: (context, i) {
+                    final page = Center(
+                      child: SizedBox(
+                        width: w,
+                        height: h,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _PageTile(
+                              key: ValueKey('paged-$i'),
+                              index: i,
+                              source: source,
+                              notes: _notes[i] ?? const [],
+                              editMode: _editMode,
+                              onTapPage: _addNote,
+                              onTapNote: _onTapNote,
+                              onScaleStartNote: _noteScaleStart,
+                              onScaleUpdateNote: _noteScaleUpdate,
+                              onScaleEndNote: _saveNotes,
+                              editingId: _editingId,
+                              inlineText: _inlineText,
+                              inlineFocus: _inlineFocus,
+                              onInlineChanged: _onInlineChanged,
+                              onInlineDrag: _dragEditingNote,
+                              // لون الورق على صورة الصفحة فقط، والملاحظات بألوانها
+                              pageFilter: _pageFilter,
+                              paperColor: _paper,
+                              darkPaper: _paperIsDark,
+                            ),
+                            _marksLayer(i),
+                          ],
+                        ),
+                      ),
+                    );
+
+                    // الصفحة الحالية فقط قابلة للتكبير (بإصبعين أو بالأزرار)
+                    if (i != _currentPage.value - 1) return page;
+                    return InteractiveViewer(
+                      transformationController: _pagedZoom,
+                      minScale: 1,
+                      maxScale: 4,
+                      // السحب بإصبع واحد للتنقل داخل الصفحة المكبرة فقط
+                      panEnabled: _pagedZoomed,
+                      // لا زوم أثناء الكتابة (مواضع الملاحظات بمقاس الصفحة الأصلي)
+                      scaleEnabled: !_editMode,
+                      onInteractionUpdate: (_) => _syncPagedZoom(),
+                      onInteractionEnd: (_) => _syncPagedZoom(),
+                      child: page,
+                    );
+                  },
                 ),
               ),
-            );
-
-            // الصفحة الحالية فقط قابلة للتكبير (بإصبعين أو بالأزرار)
-            if (i != _currentPage.value - 1) return page;
-            return InteractiveViewer(
-              transformationController: _pagedZoom,
-              minScale: 1,
-              maxScale: 4,
-              // السحب بإصبع واحد للتنقل داخل الصفحة المكبرة فقط
-              panEnabled: _pagedZoomed,
-              // لا زوم أثناء الكتابة (مواضع الملاحظات بمقاس الصفحة الأصلي)
-              scaleEnabled: !_editMode,
-              onInteractionUpdate: (_) => _syncPagedZoom(),
-              onInteractionEnd: (_) => _syncPagedZoom(),
-              child: page,
-            );
-          },
-          ),
-        ),
-        ),
+            ),
             // إطار النص المحدد ومقابضه (نفس طبقة العامودي)
             _buildOverlay(),
           ],
@@ -3038,7 +3122,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
         // أثناء الكتابة: يبقى النص ظاهرًا فوق لوحة المفاتيح
         final editing = _editingNote;
         if (editing != null && _extent > 0) {
-          final top = editing.page * _extent + _offsetY + editing.y * _pageHeight;
+          final top =
+              editing.page * _extent + _offsetY + editing.y * _pageHeight;
           final bottom =
               top + _noteH(editing, _pageWidth, _pageHeight) * _pageHeight;
           if (bottom - _scrollY > _viewHeight - 16) {
@@ -3053,7 +3138,8 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
 
         final first = (_scrollY / extent).floor().clamp(0, _pageCount - 1);
         final last =
-            ((_scrollY + _viewHeight) / extent).floor() + 1; // صفحة إضافية للتحميل المسبق
+            ((_scrollY + _viewHeight) / extent).floor() +
+            1; // صفحة إضافية للتحميل المسبق
         final lastIndex = last.clamp(0, _pageCount - 1).toInt();
 
         return Stack(
@@ -3095,11 +3181,11 @@ class _DocumentViewerPageState extends State<DocumentViewerPage>
                               inlineFocus: _inlineFocus,
                               onInlineChanged: _onInlineChanged,
                               onInlineDrag: _dragEditingNote,
-                            // لون الورق على صورة الصفحة فقط، والملاحظات بألوانها
-                  pageFilter: _pageFilter,
-                  paperColor: _paper,
-                  darkPaper: _paperIsDark,
-                ),
+                              // لون الورق على صورة الصفحة فقط، والملاحظات بألوانها
+                              pageFilter: _pageFilter,
+                              paperColor: _paper,
+                              darkPaper: _paperIsDark,
+                            ),
                           ),
                         // التحديدات فوق الصفحة (خارج فلتر الوضع الليلي حتى تبقى ألوانها)
                         for (var i = first.toInt(); i <= lastIndex; i++)
@@ -3383,7 +3469,8 @@ class _PageTile extends StatefulWidget {
     ScaleUpdateDetails details,
     double pageWidth,
     double pageHeight,
-  ) onScaleUpdateNote;
+  )
+  onScaleUpdateNote;
   final VoidCallback onScaleEndNote;
 
   // الكتابة المباشرة (اختيارية)
@@ -3537,7 +3624,8 @@ class _PageTileState extends State<_PageTile> {
                             pad: pad,
                             editMode: widget.editMode,
                             onTap: () => widget.onTapNote(note),
-                            editing: widget.editMode && note.id == widget.editingId,
+                            editing:
+                                widget.editMode && note.id == widget.editingId,
                             inlineText: widget.inlineText,
                             inlineFocus: widget.inlineFocus,
                             onInlineChanged: widget.onInlineChanged,
@@ -3608,8 +3696,10 @@ class _NoteView extends StatelessWidget {
     final shown = darkPaper && chosen.computeLuminance() < 0.2
         ? const Color(0xFFE6E0D4)
         : chosen;
-    final style = _noteTextStyle(note, fontSize)
-        .copyWith(color: shown, decorationColor: shown);
+    final style = _noteTextStyle(
+      note,
+      fontSize,
+    ).copyWith(color: shown, decorationColor: shown);
 
     final box = Opacity(
       opacity: note.opacity.clamp(0.0, 1.0).toDouble(),
@@ -3673,13 +3763,11 @@ class _NoteView extends StatelessWidget {
       onScaleStart: (_) => onScaleStart(),
       onScaleUpdate: onScaleUpdate,
       onScaleEnd: (_) => onScaleEnd(),
-      child: Padding(
-        padding: EdgeInsets.all(pad),
-        child: box,
-      ),
+      child: Padding(padding: EdgeInsets.all(pad), child: box),
     );
   }
 }
+
 // سحب النص بالإصبع أثناء الكتابة: حركة أكثر من 10 بكسل = سحب، وأقل = لمسة
 // (Listener لا يدخل في تنافس الإيماءات، فالحقل يبقى يستقبل اللمس للمؤشر)
 class _DragToMove extends StatefulWidget {

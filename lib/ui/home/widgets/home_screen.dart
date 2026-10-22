@@ -64,8 +64,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _open(Lecture lecture, {int? page}) =>
-      AppNavigator.openDocument(context, lecture, page: page);
+  void _open(Lecture lecture, {int? page, String? noteId}) =>
+      AppNavigator.openDocument(context, lecture, page: page, noteId: noteId);
 
   Future<void> _bookMenu(Lecture lecture) {
     return showModalBottomSheet<void>(
@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onCategory: (c) => vm.setBookCategory.execute((current, c)),
             onOpenBookmark: (b) {
               Navigator.of(sheetContext).pop();
-              _open(current, page: b.page);
+              _open(current, page: b.page, noteId: b.noteId);
             },
             onRemoveBookmark: vm.removeBookmark,
             onDelete: () {
@@ -136,10 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _Header(
-                            greeting: _greeting(s),
-                            dayPart: vm.dayPart,
-                          ),
+                          _Header(greeting: _greeting(s), dayPart: vm.dayPart),
                           if (!vm.isLoaded)
                             const Padding(
                               padding: EdgeInsets.all(40),
@@ -147,10 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             )
                           else if (pdfs.isEmpty) ...[
                             const SizedBox(height: 24),
-                            _NoBooks(
-                              busy: false,
-                              onAdd: _addBook,
-                            ),
+                            _NoBooks(busy: false, onAdd: _addBook),
                           ] else ...[
                             if (recent.isNotEmpty) ...[
                               const SizedBox(height: 22),
@@ -233,10 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
 // ---------------------------------------------------------------------------
 
 class _Header extends StatelessWidget {
-  const _Header({
-    required this.greeting,
-    required this.dayPart,
-  });
+  const _Header({required this.greeting, required this.dayPart});
 
   final String greeting;
   final DayPart dayPart;
@@ -917,10 +908,7 @@ class _BookSheet extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final key in <String?>[
-                    null,
-                    ...categories,
-                  ])
+                  for (final key in <String?>[null, ...categories])
                     ChoiceChip(
                       label: Text(
                         key == null ? s.noCategory : s.categoryName(key),
@@ -945,7 +933,7 @@ class _BookSheet extends StatelessWidget {
               ),
               const SizedBox(height: 22),
 
-              // علامات هذا الكتاب
+              // علامات هذا الكتاب: الصفحات والمذكرات (تبويبان إن وُجد النوعان)
               Text(s.bookmarksTitle, style: labelStyle),
               const SizedBox(height: 8),
               if (bookmarks.isEmpty)
@@ -954,47 +942,10 @@ class _BookSheet extends StatelessWidget {
                   style: AppText.body.copyWith(color: AppColors.muted),
                 )
               else
-                StudyCard(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      for (final (i, b) in bookmarks.indexed) ...[
-                        if (i > 0) Divider(height: 1, color: AppColors.line),
-                        ListTile(
-                          onTap: () => onOpenBookmark(b),
-                          leading: AppIcon(
-                            AppIcons.bookmarkSaved,
-                            size: 20,
-                            color: StudyTone.purple,
-                          ),
-                          title: Text(
-                            s.pageNumber(b.page),
-                            style: AppText.label,
-                          ),
-                          subtitle: b.text == null
-                              ? null
-                              : Text(
-                                  b.text!,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  textDirection: textDirectionFor(b.text!),
-                                  style: AppText.caption.copyWith(
-                                    color: AppColors.muted,
-                                  ),
-                                ),
-                          trailing: IconButton(
-                            tooltip: s.delete,
-                            onPressed: () => onRemoveBookmark(b),
-                            icon: AppIcon(
-                              AppIcons.close,
-                              size: 18,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                _BookmarkTabs(
+                  bookmarks: bookmarks,
+                  onOpen: onOpenBookmark,
+                  onRemove: onRemoveBookmark,
                 ),
               const SizedBox(height: 22),
 
@@ -1011,6 +962,149 @@ class _BookSheet extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// علامات الكتاب في قائمته: الصفحات (والنصوص المحددة) والمذكرات. إن وُجد النوعان
+// يظهر تبويبان صغيران بعدديهما، وإلا القائمة وحدها
+class _BookmarkTabs extends StatefulWidget {
+  const _BookmarkTabs({
+    required this.bookmarks,
+    required this.onOpen,
+    required this.onRemove,
+  });
+
+  final List<Bookmark> bookmarks;
+  final ValueChanged<Bookmark> onOpen;
+  final ValueChanged<Bookmark> onRemove;
+
+  @override
+  State<_BookmarkTabs> createState() => _BookmarkTabsState();
+}
+
+class _BookmarkTabsState extends State<_BookmarkTabs> {
+  bool _notes = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final pages = [
+      for (final b in widget.bookmarks)
+        if (b.kind != BookmarkKind.note) b,
+    ];
+    final notes = [
+      for (final b in widget.bookmarks)
+        if (b.kind == BookmarkKind.note) b,
+    ]..sort((a, b) => a.page.compareTo(b.page));
+    final both = pages.isNotEmpty && notes.isNotEmpty;
+    final showNotes = both ? _notes : notes.isNotEmpty;
+    final list = showNotes ? notes : pages;
+
+    Widget tab(String label, int count, bool selected, bool value) =>
+        ChoiceChip(
+          label: Text('$label  $count'),
+          selected: selected,
+          onSelected: (_) => setState(() => _notes = value),
+          selectedColor: StudyTone.purple.withValues(alpha: 0.16),
+          labelStyle: AppText.label.copyWith(
+            color: selected ? StudyTone.purple : AppColors.ink,
+          ),
+          side: BorderSide(color: selected ? StudyTone.purple : AppColors.line),
+          backgroundColor: StudyTone.card,
+          showCheckmark: false,
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (both) ...[
+          Wrap(
+            spacing: 8,
+            children: [
+              tab(s.bookmarkPagesTab, pages.length, !showNotes, false),
+              tab(s.bookmarkNotesTab, notes.length, showNotes, true),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: StudyCard(
+            key: ValueKey(showNotes),
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (final (i, b) in list.indexed) ...[
+                  if (i > 0) Divider(height: 1, color: AppColors.line),
+                  showNotes ? _noteTile(s, b) : _pageTile(s, b),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _remove(AppStrings s, Bookmark b) => IconButton(
+    tooltip: s.removeFromBookmarks,
+    onPressed: () => widget.onRemove(b),
+    icon: AppIcon(AppIcons.close, size: 18, color: AppColors.muted),
+  );
+
+  Widget _pageTile(AppStrings s, Bookmark b) => ListTile(
+    onTap: () => widget.onOpen(b),
+    leading: AppIcon(AppIcons.bookmarkSaved, size: 20, color: StudyTone.purple),
+    title: Text(s.pageNumber(b.page), style: AppText.label),
+    subtitle: b.text == null
+        ? null
+        : Text(
+            b.text!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textDirection: textDirectionFor(b.text!),
+            style: AppText.caption.copyWith(color: AppColors.muted),
+          ),
+    trailing: _remove(s, b),
+  );
+
+  // المذكرة: اسمها (أو بداية نصها، أو "رسم" إن لم يكن فيها نص)، ثم الصفحة
+  // ومعاينة قصيرة من نصها
+  Widget _noteTile(AppStrings s, Bookmark b) {
+    final preview = (b.text ?? '').trim();
+    final title = b.title ?? (preview.isEmpty ? s.drawingNote : preview);
+    final showPreview = b.title != null && preview.isNotEmpty;
+    return ListTile(
+      onTap: () => widget.onOpen(b),
+      leading: AppIcon(AppIcons.stickyNote, size: 20, color: StudyTone.purple),
+      title: Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textDirection: textDirectionFor(title),
+        style: AppText.label,
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            s.pageNumber(b.page),
+            style: AppText.caption.copyWith(color: StudyTone.purple),
+          ),
+          if (showPreview)
+            Text(
+              preview,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textDirection: textDirectionFor(preview),
+              style: AppText.caption.copyWith(color: AppColors.muted),
+            ),
+        ],
+      ),
+      trailing: _remove(s, b),
     );
   }
 }

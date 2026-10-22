@@ -36,10 +36,12 @@ abstract final class AppNavigator {
   }
 
   // page: فتح صفحة محددة (من علامة مرجعية) بدل آخر صفحة مقروءة
+  // noteId: علامة مذكرة، فتُفتح المذكرة نفسها على صفحتها (PDF)
   static Future<void> openDocument(
     BuildContext context,
     Lecture lecture, {
     int? page,
+    String? noteId,
   }) async {
     // كتب EPUB لها قارئ خاص: يحفظ مكانه بنفسه، والتقدم نسبة من 100
     if (lecture.isEpub) {
@@ -94,6 +96,7 @@ abstract final class AppNavigator {
               filePath: lecture.filePath,
               initialPage: page ?? progress?.progressFor(lecture.id)?.page,
               onPageChanged: record,
+              openNoteId: noteId,
             ),
           ),
         ),

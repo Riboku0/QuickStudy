@@ -27,8 +27,8 @@ class Flashcard {
   }
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'question': question,
-        'answer': answer,
-      };
+    'id': id,
+    'question': question,
+    'answer': answer,
+  };
 }

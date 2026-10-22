@@ -45,31 +45,109 @@ class BookmarkRepository extends ChangeNotifier {
       await remove(existing.id);
       return false;
     }
-    await _add(Bookmark(
-      id: _newId(),
-      lectureId: lectureId,
-      page: page,
-      kind: BookmarkKind.page,
-      createdAt: DateTime.now(),
-    ));
+    await _add(
+      Bookmark(
+        id: _newId(),
+        lectureId: lectureId,
+        page: page,
+        kind: BookmarkKind.page,
+        createdAt: DateTime.now(),
+      ),
+    );
     return true;
   }
 
-  Future<void> addText(
-    int lectureId,
-    int page,
-    String text, {
-    int? color,
-  }) {
-    return _add(Bookmark(
-      id: _newId(),
-      lectureId: lectureId,
-      page: page,
-      kind: BookmarkKind.text,
-      createdAt: DateTime.now(),
-      text: text,
-      color: color,
-    ));
+  Future<void> addText(int lectureId, int page, String text, {int? color}) {
+    return _add(
+      Bookmark(
+        id: _newId(),
+        lectureId: lectureId,
+        page: page,
+        kind: BookmarkKind.text,
+        createdAt: DateTime.now(),
+        text: text,
+        color: color,
+      ),
+    );
+  }
+
+  // ---- علامات المذكرات: كل مذكرة علامة واحدة على الأكثر ----
+
+  Bookmark? noteBookmark(int lectureId, String noteId) {
+    for (final b in _items) {
+      if (b.lectureId == lectureId &&
+          b.kind == BookmarkKind.note &&
+          b.noteId == noteId) {
+        return b;
+      }
+    }
+    return null;
+  }
+
+  // إضافة أو تعديل الاسم (بلا تكرار). الاسم الفارغ = بلا اسم
+  Future<void> saveNote({
+    required int lectureId,
+    required String noteId,
+    required int page,
+    required String preview,
+    String? title,
+  }) async {
+    final clean = title?.trim();
+    final named = clean == null || clean.isEmpty ? null : clean;
+    final existing = noteBookmark(lectureId, noteId);
+    if (existing != null) {
+      _replace(
+        existing.copyWith(
+          page: page,
+          text: preview,
+          title: named,
+          clearTitle: named == null,
+        ),
+      );
+      await _save();
+      return;
+    }
+    await _add(
+      Bookmark(
+        id: _newId(),
+        lectureId: lectureId,
+        page: page,
+        kind: BookmarkKind.note,
+        createdAt: DateTime.now(),
+        noteId: noteId,
+        text: preview,
+        title: named,
+      ),
+    );
+  }
+
+  // بعد تعديل المذكرة: المعاينة والصفحة تتبعانها (الاسم لا يتغير)
+  Future<void> syncNote({
+    required int lectureId,
+    required String noteId,
+    required int page,
+    required String preview,
+  }) async {
+    final existing = noteBookmark(lectureId, noteId);
+    if (existing == null ||
+        (existing.text == preview && existing.page == page)) {
+      return;
+    }
+    _replace(existing.copyWith(page: page, text: preview));
+    await _save();
+  }
+
+  // إزالة العلامة فقط؛ المذكرة نفسها تبقى
+  Future<void> removeNote(int lectureId, String noteId) async {
+    final existing = noteBookmark(lectureId, noteId);
+    if (existing != null) await remove(existing.id);
+  }
+
+  void _replace(Bookmark updated) {
+    _items = List.unmodifiable([
+      for (final b in _items) b.id == updated.id ? updated : b,
+    ]);
+    notifyListeners();
   }
 
   Future<void> remove(String id) async {
@@ -101,5 +179,9 @@ class BookmarkRepository extends ChangeNotifier {
     }
   }
 
-  static String _newId() => DateTime.now().microsecondsSinceEpoch.toString();
+  // الوقت وحده قد يتكرر لعلامتين في نفس الميكروثانية (فيحذف إزالة إحداهما
+  // الأخرى)، فيُضاف عداد
+  static int _seq = 0;
+  static String _newId() =>
+      '${DateTime.now().microsecondsSinceEpoch}_${_seq++}';
 }

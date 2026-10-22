@@ -36,6 +36,15 @@ abstract final class AppIcons {
   static const AppIconData draw = HugeIcons.strokeRoundedPenTool01;
   static const AppIconData penNib = HugeIcons.strokeRoundedPenTool01;
   static const AppIconData textTool = HugeIcons.strokeRoundedTextFont;
+  static const AppIconData shapes = HugeIcons.strokeRoundedShapes;
+  // مرفقات الصفحات: صوت وصورة
+  static const AppIconData mic = HugeIcons.strokeRoundedMic01;
+  static const AppIconData play = HugeIcons.strokeRoundedPlay;
+  static const AppIconData pause = HugeIcons.strokeRoundedPause;
+  static const AppIconData stop = HugeIcons.strokeRoundedStop;
+  static const AppIconData audioFile = HugeIcons.strokeRoundedMusicNote01;
+  static const AppIconData record = HugeIcons.strokeRoundedRecord;
+  static const AppIconData pageMove = HugeIcons.strokeRoundedFileExport;
   static const AppIconData pencil = HugeIcons.strokeRoundedPencil;
   static const AppIconData highlighter = HugeIcons.strokeRoundedHighlighter;
   static const AppIconData eraser = HugeIcons.strokeRoundedEraser01;

@@ -27,8 +27,8 @@ class ReadingProgress {
   }
 
   Map<String, Object?> toMap() => {
-        'page': page,
-        'pageCount': pageCount,
-        'openedAt': openedAt.toIso8601String(),
-      };
+    'page': page,
+    'pageCount': pageCount,
+    'openedAt': openedAt.toIso8601String(),
+  };
 }

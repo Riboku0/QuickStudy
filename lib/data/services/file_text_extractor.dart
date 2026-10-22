@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -22,9 +21,7 @@ String _extractPdfTextSync(Uint8List bytes) {
 
 class FileTextExtractor {
   /// الصيغ المدعومة: PDF والصور فقط.
-  static Future<String> extractText({
-    required String path,
-  }) async {
+  static Future<String> extractText({required String path}) async {
     final file = File(path);
 
     if (!await file.exists()) {
@@ -107,19 +104,12 @@ class FileTextExtractor {
       );
 
       try {
-        await imageFile.writeAsBytes(
-          pngBytes,
-          flush: true,
-        );
+        await imageFile.writeAsBytes(pngBytes, flush: true);
 
-        final recognizedText =
-            await FlutterTesseractOcr.extractText(
+        final recognizedText = await FlutterTesseractOcr.extractText(
           imageFile.path,
           language: 'ara+eng',
-          args: {
-            'psm': '3',
-            'preserve_interword_spaces': '1',
-          },
+          args: {'psm': '3', 'preserve_interword_spaces': '1'},
         );
 
         if (recognizedText.trim().isNotEmpty) {
@@ -160,10 +150,7 @@ class FileTextExtractor {
     final text = await FlutterTesseractOcr.extractText(
       file.path,
       language: 'ara+eng',
-      args: {
-        'psm': '3',
-        'preserve_interword_spaces': '1',
-      },
+      args: {'psm': '3', 'preserve_interword_spaces': '1'},
     );
 
     return text.trim();

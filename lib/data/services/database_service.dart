@@ -137,7 +137,10 @@ class DatabaseService {
 
   Future<List<Map<String, Object?>>> getChapters() async {
     final db = await _open();
-    return db.query('chapters', orderBy: 'subjectId ASC, sortOrder ASC, id ASC');
+    return db.query(
+      'chapters',
+      orderBy: 'subjectId ASC, sortOrder ASC, id ASC',
+    );
   }
 
   // color بقي في الجدول (0) ولم يعد يُستخدم في الواجهة

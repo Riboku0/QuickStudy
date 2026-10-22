@@ -57,16 +57,16 @@ class Lecture {
 
   // تغيير التصنيف (يقبل null لإزالته)
   Lecture withCategory(String? value) => Lecture(
-        id: id,
-        name: name,
-        filePath: filePath,
-        fileType: fileType,
-        dateAdded: dateAdded,
-        size: size,
-        exists: exists,
-        origin: origin,
-        category: value,
-      );
+    id: id,
+    name: name,
+    filePath: filePath,
+    fileType: fileType,
+    dateAdded: dateAdded,
+    size: size,
+    exists: exists,
+    origin: origin,
+    category: value,
+  );
 
   Lecture copyWith({int? size, bool? exists}) {
     return Lecture(

@@ -58,6 +58,8 @@ dependencies:
   phosphoricons_flutter: ^1.1.1
   flutter_epub_viewer: ^2.1.0
   pdfrx: 2.6.6
+  record: ^7.1.2
+  just_audio: ^0.10.6
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -83,6 +85,7 @@ flutter:
     - assets/backgrounds/
     - assets/avatars/
     - assets/scene/
+    - assets/owl/
 
   shaders:
     - shaders/scene_tint.frag

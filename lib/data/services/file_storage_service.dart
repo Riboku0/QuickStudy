@@ -49,11 +49,25 @@ class FileStorageService {
     await deleteIfExists(
       p.join(directory.path, 'quickstudy_notes', '${lectureId}_cards.json'),
     );
+    // مرفقات الصفحات (صوت وصورة): قائمتها وملفاتها
+    await deleteIfExists(
+      p.join(
+        directory.path,
+        'quickstudy_notes',
+        '${lectureId}_attachments.json',
+      ),
+    );
+    final attachments = Directory(
+      p.join(directory.path, 'quickstudy_notes', 'attachments', '$lectureId'),
+    );
+    if (await attachments.exists()) await attachments.delete(recursive: true);
     await deleteIfExists(
       p.join(directory.path, 'quickstudy_edits', '${lectureId}_edited.txt'),
     );
     // نتائج التعرف الضوئي للصفحات
-    final ocr = Directory(p.join(directory.path, 'quickstudy_ocr', '$lectureId'));
+    final ocr = Directory(
+      p.join(directory.path, 'quickstudy_ocr', '$lectureId'),
+    );
     if (await ocr.exists()) await ocr.delete(recursive: true);
   }
 }

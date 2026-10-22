@@ -217,8 +217,8 @@ class _EpubReaderScreenState extends State<EpubReaderScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    tooltip:
-                        MaterialLocalizations.of(context).backButtonTooltip,
+                    tooltip: MaterialLocalizations.of(context)
+                        .backButtonTooltip,
                     onPressed: () => Navigator.of(context).pop(),
                     icon: AppIcon(AppIcons.previous, size: 22, color: _ink),
                   ),
@@ -350,7 +350,11 @@ class _EpubReaderScreenState extends State<EpubReaderScreen> {
 }
 
 class _SizeButton extends StatelessWidget {
-  const _SizeButton({required this.label, required this.onTap, this.small = false});
+  const _SizeButton({
+    required this.label,
+    required this.onTap,
+    this.small = false,
+  });
 
   final String label;
   final VoidCallback? onTap;
@@ -364,7 +368,9 @@ class _SizeButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           padding: EdgeInsets.zero,
         ),
         child: Text(

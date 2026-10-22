@@ -7,6 +7,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/ui/core_ui.dart';
+import 'pdf_text_tools.dart';
+
 // الملاحظات النصية على الصفحات (العارض الجديد).
 // نفس ملف العارض القديم: quickstudy_notes/{id}_notes.json، فالملاحظات القديمة
 // تظهر هنا والجديدة تظهر هناك. المواضع نسبة من الصفحة، والخط نسبة من عرضها.
@@ -98,34 +101,10 @@ class PageNote {
   );
 }
 
-final RegExp _rtl = RegExp(r'[֐-ࣿﭐ-﷿ﹰ-﻿]');
-bool _isRtl(String text) => _rtl.hasMatch(text);
-
-// خطوط الملاحظات من العارض القديم (للعرض بنفس الشكل)
-const Map<String, String> _googleFonts = {
-  'cairo': 'Cairo',
-  'tajawal': 'Tajawal',
-  'amiri': 'Amiri',
-  'naskh': 'Noto Naskh Arabic',
-  'kufi': 'Noto Kufi Arabic',
-  'reem': 'Reem Kufi',
-  'almarai': 'Almarai',
-  'messiri': 'El Messiri',
-  'lalezar': 'Lalezar',
-  'ruqaa': 'Aref Ruqaa',
-  'lateef': 'Lateef',
-  'mada': 'Mada',
-  'changa': 'Changa',
-  'markazi': 'Markazi Text',
-  'scheherazade': 'Scheherazade New',
-  'rakkas': 'Rakkas',
-  'katibeh': 'Katibeh',
-  'lemonada': 'Lemonada',
-  'harmattan': 'Harmattan',
-  'playfair': 'Playfair Display',
-  'robotoslab': 'Roboto Slab',
-  'bebas': 'Bebas Neue',
-  'pacifico': 'Pacifico',
+// خطوط الملاحظات: نفس قائمة شريط النص (noteFonts)، ومنها خطوط العارض القديم
+final Map<String, String> _googleFonts = {
+  for (final f in noteFonts)
+    if (f.google != null) f.id: f.google!,
 };
 
 TextStyle noteStyle(PageNote note, double fontSize) {
@@ -154,11 +133,12 @@ TextAlign noteAlign(PageNote note) => switch (note.align) {
   1 => TextAlign.left,
   2 => TextAlign.center,
   3 => TextAlign.right,
-  _ => _isRtl(note.text) ? TextAlign.right : TextAlign.left,
+  // تلقائي: بداية السطر حسب اتجاه النص (يُمرر معه textDirection دائمًا)
+  _ => TextAlign.start,
 };
 
-TextDirection noteDirection(String text) =>
-    _isRtl(text) ? TextDirection.rtl : TextDirection.ltr;
+// اتجاه النص بقاعدة أول حرف قوي (textDirectionFor) لكل اللغات
+TextDirection noteDirection(String text) => textDirectionFor(text);
 
 // الهامش الداخلي للصندوق (نفس العارض القديم)
 double notePadding(double fontSize) => fontSize * 0.15;

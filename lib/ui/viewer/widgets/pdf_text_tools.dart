@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/ui/core_ui.dart';
+import 'ink_color_wheel.dart';
 import 'pdf_notes.dart';
 import 'reader_chrome.dart';
 
@@ -29,23 +30,33 @@ const List<NoteFont> noteFonts = [
   (id: 'katibeh', label: 'كاتبة', google: 'Katibeh'),
   (id: 'lemonada', label: 'ليمونادا', google: 'Lemonada'),
   (id: 'harmattan', label: 'هرمتان', google: 'Harmattan'),
+  // إضافات 22 أكتوبر (كلها موجودة في google_fonts 9.0.0)
+  (id: 'plexarabic', label: 'بلكس', google: 'IBM Plex Sans Arabic'),
+  (id: 'readex', label: 'ريدكس', google: 'Readex Pro'),
+  (id: 'vazir', label: 'وزير', google: 'Vazirmatn'),
+  (id: 'notosans', label: 'نوتو', google: 'Noto Sans Arabic'),
+  (id: 'rubik', label: 'روبيك', google: 'Rubik'),
+  (id: 'baloo', label: 'بالو', google: 'Baloo Bhaijaan 2'),
+  (id: 'marhey', label: 'مرحي', google: 'Marhey'),
+  (id: 'mirza', label: 'ميرزا', google: 'Mirza'),
+  (id: 'gulzar', label: 'كلزار', google: 'Gulzar'),
   (id: 'serif', label: 'Serif', google: null),
   (id: 'mono', label: 'Mono', google: null),
   (id: 'playfair', label: 'Playfair', google: 'Playfair Display'),
   (id: 'robotoslab', label: 'Roboto Slab', google: 'Roboto Slab'),
   (id: 'bebas', label: 'BEBAS', google: 'Bebas Neue'),
   (id: 'pacifico', label: 'Pacifico', google: 'Pacifico'),
-];
-
-const List<int> _textColors = [
-  0xFF202020,
-  0xFFFFFFFF,
-  0xFFE53935,
-  0xFFFB8C00,
-  0xFFFDD835,
-  0xFF43A047,
-  0xFF1E88E5,
-  0xFF8E24AA,
+  (id: 'caveat', label: 'Caveat', google: 'Caveat'),
+  (id: 'dancing', label: 'Dancing', google: 'Dancing Script'),
+  (id: 'indie', label: 'Indie Flower', google: 'Indie Flower'),
+  (id: 'patrick', label: 'Patrick Hand', google: 'Patrick Hand'),
+  (id: 'kalam', label: 'Kalam', google: 'Kalam'),
+  (id: 'shadows', label: 'Shadows', google: 'Shadows Into Light'),
+  (id: 'lora', label: 'Lora', google: 'Lora'),
+  (id: 'merriweather', label: 'Merriweather', google: 'Merriweather'),
+  (id: 'montserrat', label: 'Montserrat', google: 'Montserrat'),
+  (id: 'poppins', label: 'Poppins', google: 'Poppins'),
+  (id: 'nunito', label: 'Nunito', google: 'Nunito'),
 ];
 
 const List<int> _bgColors = [
@@ -58,7 +69,8 @@ const List<int> _bgColors = [
   0xFF202020,
 ];
 
-enum _Tab { font, size, color, background, style, align, opacity, rotate }
+// بلا تبويب لون النص: النص يأخذ لونه من ألوان لوحة القلم في الأعلى (طلب المستخدم)
+enum _Tab { font, size, background, style, align, opacity, rotate }
 
 // شريط تنسيق النص (مثل العارض القديم): صف تبويبات بالأيقونات وتحته أدوات التبويب.
 // يظهر أسفل الشاشة فوق لوحة المفاتيح أثناء كتابة النص.
@@ -158,11 +170,6 @@ class _NoteToolbarState extends State<NoteToolbar> {
                             _Tab.size,
                             const Icon(Icons.format_size),
                             s.textSize,
-                          ),
-                          tab(
-                            _Tab.color,
-                            const Icon(Icons.format_color_text),
-                            s.noteColor,
                           ),
                           tab(
                             _Tab.background,
@@ -269,6 +276,45 @@ class _NoteToolbarState extends State<NoteToolbar> {
       ),
     );
 
+    // دائرة قوس قزح تفتح عجلة الألوان
+    Widget wheel(int current, ValueChanged<int> onPicked) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Semantics(
+        button: true,
+        label: s.moreColors,
+        excludeSemantics: true,
+        child: GestureDetector(
+          onTap: () async {
+            final picked = await showInkColorWheel(
+              context,
+              initial: Color(current),
+              chrome: c,
+            );
+            if (picked != null && mounted) onPicked(picked.toARGB32());
+          },
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: SweepGradient(
+                colors: [
+                  Color(0xFFFF5A5A),
+                  Color(0xFFFFD84D),
+                  Color(0xFF5AD17A),
+                  Color(0xFF4DB8FF),
+                  Color(0xFF8E6BFF),
+                  Color(0xFFFF5AC8),
+                  Color(0xFFFF5A5A),
+                ],
+              ),
+            ),
+            child: const Icon(Icons.add, size: 18, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+
     Widget slider(
       double value,
       double min,
@@ -331,21 +377,16 @@ class _NoteToolbarState extends State<NoteToolbar> {
       case _Tab.size:
         // حجم الخط نسبة من عرض الصفحة (0.015 – 0.12)
         return slider(n.size, 0.015, 0.12, (v) => _set(() => n.size = v));
-      case _Tab.color:
-        return ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            for (final col in _textColors)
-              swatch(col, n.color == col, () => _set(() => n.color = col)),
-          ],
-        );
       case _Tab.background:
+        final bg = n.bg;
         return ListView(
           scrollDirection: Axis.horizontal,
           children: [
-            swatch(null, n.bg == null, () => _set(() => n.bg = null)),
+            wheel(bg ?? 0xFFFFFFFF, (col) => _set(() => n.bg = col)),
+            swatch(null, bg == null, () => _set(() => n.bg = null)),
+            if (bg != null && !_bgColors.contains(bg)) swatch(bg, true, () {}),
             for (final col in _bgColors)
-              swatch(col, n.bg == col, () => _set(() => n.bg = col)),
+              swatch(col, bg == col, () => _set(() => n.bg = col)),
           ],
         );
       case _Tab.style:

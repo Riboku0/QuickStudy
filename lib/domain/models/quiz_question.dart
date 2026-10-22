@@ -21,7 +21,8 @@ class QuizQuestion {
   // يتحقق من صحة البيانات (مهم لاحقًا مع ردود الذكاء الاصطناعي)
   factory QuizQuestion.fromMap(Map<String, dynamic> map) {
     final question = (map['question'] as String?)?.trim() ?? '';
-    final options = (map['options'] as List?)
+    final options =
+        (map['options'] as List?)
             ?.map((o) => o.toString().trim())
             .where((o) => o.isNotEmpty)
             .toList() ??
@@ -45,16 +46,17 @@ class QuizQuestion {
       question: question,
       options: options,
       correctIndex: correct,
-      explanation:
-          (explanation == null || explanation.isEmpty) ? null : explanation,
+      explanation: (explanation == null || explanation.isEmpty)
+          ? null
+          : explanation,
     );
   }
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'question': question,
-        'options': options,
-        'correctIndex': correctIndex,
-        'explanation': explanation,
-      };
+    'id': id,
+    'question': question,
+    'options': options,
+    'correctIndex': correctIndex,
+    'explanation': explanation,
+  };
 }

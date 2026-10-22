@@ -5,19 +5,41 @@ import '../../../domain/models/reader_settings.dart';
 import '../../core/l10n/app_strings.dart';
 import 'reader_chrome.dart';
 
-// ألوان ورق العارض
+// ألوان القراءة في مكان واحد: كل خلفية ولون نصها (مواصفات المستخدم 22 أكتوبر:
+// هادئة للقراءة الطويلة، بلا أبيض حاد ولا أسود صرف). العارضان يرسمان الصفحة
+// بتحويل خطي: أبيض الصفحة ← الخلفية، وأسودها ← النص.
 extension ReaderBackgroundColor on ReaderBackground {
   Color get color => switch (this) {
-    // درجات هادئة مأخوذة من صفحات مرجع المستخدم (لا من دوائر الاختيار)
-    ReaderBackground.classic => const Color(0xFFF8F1E4),
-    ReaderBackground.green => const Color(0xFFE9F2E5),
-    ReaderBackground.blue => const Color(0xFFE8F0F7),
-    ReaderBackground.light => const Color(0xFFFBF7F4),
-    ReaderBackground.warm => const Color(0xFFF9ECE2),
-    ReaderBackground.dark => const Color(0xFF262B29),
+    ReaderBackground.classic => const Color(0xFFF3E8D5), // Warm Ivory
+    ReaderBackground.green => const Color(0xFFDFEBDD), // Sage Mist
+    ReaderBackground.blue => const Color(0xFFDFEAF2), // Powder Blue
+    ReaderBackground.light => const Color(0xFFF2F0E9), // Soft Paper
+    ReaderBackground.warm => const Color(0xFFF2E2D8), // Peach Cream
+    ReaderBackground.dark => const Color(0xFF292E32), // Midnight Slate
+  };
+
+  // لون النص المناسب لكل خلفية
+  Color get ink => switch (this) {
+    ReaderBackground.classic => const Color(0xFF393025),
+    ReaderBackground.green => const Color(0xFF2D3B32),
+    ReaderBackground.blue => const Color(0xFF2C3946),
+    ReaderBackground.light => const Color(0xFF33322F),
+    ReaderBackground.warm => const Color(0xFF43332E),
+    ReaderBackground.dark => const Color(0xFFE5E8E7),
   };
 
   bool get isDark => this == ReaderBackground.dark;
+}
+
+// الليلي (مستقل عن الخلفيات): كحلي هادئ ونص فاتح
+const Color readerNightPaper = Color(0xFF222733);
+const Color readerNightInk = Color(0xFFD5DAE2);
+
+// ورق القراءة الحالي ونصه حسب الإعدادات (للعارضين)
+extension ReaderPaper on ReaderSettings {
+  Color get paperColor => nightMode ? readerNightPaper : background.color;
+  Color get inkColor => nightMode ? readerNightInk : background.ink;
+  bool get darkPaper => nightMode || background.isDark;
 }
 
 // لوحة إعدادات القراءة (تفتح من زر الإعدادات في العارض)

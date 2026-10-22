@@ -8,7 +8,7 @@ import '../../services/reader_settings_service.dart';
 // مصدر واحد لإعدادات العارض. التغيير يظهر فورًا، والحفظ بعده.
 class ReaderSettingsRepository extends ChangeNotifier {
   ReaderSettingsRepository({required ReaderSettingsService service})
-      : _service = service;
+    : _service = service;
 
   final ReaderSettingsService _service;
 
@@ -30,7 +30,13 @@ class ReaderSettingsRepository extends ChangeNotifier {
     _saveTimer = Timer(const Duration(milliseconds: 500), _save);
   }
 
-  void reset() => update(ReaderSettings.defaults);
+  // إعادة الضبط لا تمسح لون العجلة المحفوظ ولا تعيد تلميحًا رآه المستخدم
+  void reset() => update(
+    ReaderSettings(
+      customInkColor: _settings.customInkColor,
+      noteBookmarkHintSeen: _settings.noteBookmarkHintSeen,
+    ),
+  );
 
   Future<void> _save() async {
     try {
