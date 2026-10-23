@@ -71,6 +71,13 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+# نسخة محلية من pdfrx 2.6.6 بتعديل واحد: pdfrxPageColorFilter يلوّن صور الصفحات
+# أثناء رسمها (ألوان الورق بلا طبقة لكل صفحة، الرسم 15.6ms ← ~2ms). انظر
+# third_party/pdfrx/README.md
+dependency_overrides:
+  pdfrx:
+    path: third_party/pdfrx
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

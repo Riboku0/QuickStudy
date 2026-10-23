@@ -18,6 +18,8 @@ abstract final class AppIcons {
   // الملفات
   static const AppIconData upload = HugeIcons.strokeRoundedCloudUpload;
   static const AppIconData download = HugeIcons.strokeRoundedCloudDownload;
+  static const AppIconData saveFile = HugeIcons.strokeRoundedFileDownload;
+  static const AppIconData shareFile = HugeIcons.strokeRoundedShare08;
   static const AppIconData link = HugeIcons.strokeRoundedLink01;
   static const AppIconData add = HugeIcons.strokeRoundedAdd01;
   static const AppIconData pdf = HugeIcons.strokeRoundedPdf01;
@@ -36,6 +38,10 @@ abstract final class AppIcons {
   static const AppIconData draw = HugeIcons.strokeRoundedPenTool01;
   static const AppIconData penNib = HugeIcons.strokeRoundedPenTool01;
   static const AppIconData textTool = HugeIcons.strokeRoundedTextFont;
+  static const AppIconData textReading =
+      HugeIcons.strokeRoundedTextAlignJustifyLeft;
+  static const AppIconData pdfPages = HugeIcons.strokeRoundedPdf02;
+  static const AppIconData fontSize = HugeIcons.strokeRoundedTextSmallcaps;
   static const AppIconData shapes = HugeIcons.strokeRoundedShapes;
   // مرفقات الصفحات: صوت وصورة
   static const AppIconData mic = HugeIcons.strokeRoundedMic01;
@@ -95,6 +101,10 @@ abstract final class AppIcons {
   static const AppIconData settings = HugeIcons.strokeRoundedSettings02;
   static const AppIconData sun = HugeIcons.strokeRoundedSun03;
   static const AppIconData moon = HugeIcons.strokeRoundedMoon02;
+  // لوحة إعدادات القراءة
+  static const AppIconData margins = HugeIcons.strokeRoundedNote01;
+  static const AppIconData palette = HugeIcons.strokeRoundedPaintBoard;
+  static const AppIconData refresh = HugeIcons.strokeRoundedRefresh;
   static const AppIconData phone = HugeIcons.strokeRoundedSmartPhone01;
   static const AppIconData language = HugeIcons.strokeRoundedTranslate;
 

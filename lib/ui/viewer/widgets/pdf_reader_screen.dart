@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show
@@ -11,6 +13,7 @@ import 'package:flutter/services.dart'
         HapticFeedback,
         LengthLimitingTextInputFormatter;
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -26,6 +29,7 @@ import 'ink_color_wheel.dart';
 import 'note_bookmark_dialog.dart';
 import 'note_lines_editor.dart';
 import 'pdf_attachments.dart';
+import 'pdf_export.dart';
 import 'pdf_ink.dart';
 import 'pdf_marks.dart';
 import 'pdf_note_cards.dart';
@@ -34,15 +38,83 @@ import 'pdf_text_tools.dart';
 import 'pdf_scanned_text.dart';
 import 'reader_chrome.dart';
 import 'reading_wait.dart';
+import 'styled_text.dart';
+import 'pdf_text_mode.dart';
 import 'reader_settings_sheet.dart';
 import 'text_marks.dart';
 
-// نتيجة إغلاق العارض: فتح العارض القديم على صفحة (للقلم والتحديد حتى تُبنى هنا)
-class OpenClassicViewer {
-  const OpenClassicViewer(this.page);
+// ------------------------- القراءة الأفقية (صفحة بصفحة) -------------------------
+// الصفحات جنبًا إلى جنب بارتفاع واحد، والكتاب العربي يبدأ من اليمين (الصفحة
+// التالية على اليسار). دوال عليا ثابتة حتى لا تتغير معاملات العارض في كل بناء.
 
-  final int page;
+PdfPageLayout _horizontalLayout(
+  List<PdfPage> pages,
+  PdfViewerParams params, {
+  required bool rtl,
+}) {
+  final m = params.margin;
+  final height = pages.fold(0.0, (h, p) => math.max(h, p.height));
+  final rects = <Rect>[];
+  var x = m;
+  for (final page in pages) {
+    final w = page.height <= 0 ? page.width : page.width * height / page.height;
+    rects.add(Rect.fromLTWH(x, m, w, height));
+    x += w + m * 2;
+  }
+  final width = x - m;
+  return PdfPageLayout(
+    pageLayouts: rtl
+        ? [
+            for (final r in rects)
+              Rect.fromLTWH(width - r.right, r.top, r.width, r.height),
+          ]
+        : rects,
+    documentSize: Size(width, height + m * 2),
+  );
 }
+
+PdfPageLayout _layoutLtr(List<PdfPage> pages, PdfViewerParams params) =>
+    _horizontalLayout(pages, params, rtl: false);
+
+PdfPageLayout _layoutRtl(List<PdfPage> pages, PdfViewerParams params) =>
+    _horizontalLayout(pages, params, rtl: true);
+
+// يفتح على صفحة كاملة في الشاشة (الافتراضي يملأ الارتفاع فتُقص الصفحة)
+double? _fitPageZoom(
+  PdfDocument document,
+  PdfViewerController controller,
+  double fitZoom,
+  double coverZoom,
+) => fitZoom;
+
+const _horizontalSizing = PdfViewerSizeDelegateProviderLegacy(
+  calculateInitialZoom: _fitPageZoom,
+);
+
+// الصفحة الحالية في الأفقي: الأقرب لمنتصف الشاشة. تخمين pdfrx يحسبها من
+// نسبة التمرير من اليسار، فيعطي الكتاب العربي (الصفحة 1 يمينًا) رقمًا معكوسًا
+// (صفحة 117 من 456 ظهرت 340)
+int? _pageAtCenter(
+  Rect visible,
+  List<Rect> pages,
+  PdfViewerController controller,
+) {
+  var best = 1;
+  var distance = double.infinity;
+  for (var i = 0; i < pages.length; i++) {
+    final d = (pages[i].center.dx - visible.center.dx).abs();
+    if (d < distance) {
+      distance = d;
+      best = i + 1;
+    }
+  }
+  return best;
+}
+
+// احتكاك الإفلات في InteractiveViewer (الافتراضي). مسافة الانزلاق بعد الإفلات
+// بسرعة v (بكسل/ثانية) = v / -ln(drag)، فنعرف أين سيقف قبل أن يقف.
+const double _drag = 0.0000135;
+double _glideDistance(double velocity) => velocity / -math.log(_drag);
 
 // عارض PDF الجديد على pdfrx (PDFium): رسم سريع بأجزاء حسب الزوم، وصفحات حسب الحاجة.
 // المرحلة 1: القراءة والزوم والتقدم والعلامات والسطوع وألوان الورق والليلي.
@@ -71,10 +143,59 @@ class PdfReaderScreen extends StatefulWidget {
 
 class _PdfReaderScreenState extends State<PdfReaderScreen> {
   final _controller = PdfViewerController();
+  // الصفحات مصغرة كثيرًا (أقل من 60% من ملء العرض): تُرسم بلا ظل
+  bool _overview = false;
+
+  void _onViewChanged() {
+    if (!_controller.isReady) return;
+    final overview = _controller.currentZoom < _controller.coverScale * 0.6;
+    if (overview != _overview) setState(() => _overview = overview);
+  }
+
   final _page = ValueNotifier<int>(1);
+  // القراءة النصية (النص المستخرج بحجم خط) بدل الصفحات الأصلية
+  final _textMode = ValueNotifier<bool>(false);
+  final _textReaderKey = GlobalKey<PdfTextReaderState>();
   late final ReaderSettingsRepository _reader;
   late final BookmarkRepository _bookmarks;
   int _pageCount = 0;
+  // كتاب عربي (أو عبري): في اسمه حرف من اليمين، فتقليبه الأفقي من اليمين
+  late final bool _rtlBook = RegExp(r'[֐-ࣿיִ-﷿ﹰ-﻿]').hasMatch(widget.fileName);
+  bool _wasVertical = true; // لاكتشاف تبديل الوضع وإعادة ملاءمة الصفحة
+  ReaderMargin _wasMargin = ReaderMargin.standard;
+  Size? _viewSize; // لاكتشاف تدوير الجهاز وإعادة الملاءمة
+  int _snapFrom = 0; // الصفحة عند بداية السحب (الأفقي)
+  double _zoomAtStart = 1; // لمعرفة أن الإيماءة كانت قرصًا (تكبير/تصغير)
+  // حدود الزوم في العامودي (تُحسب مرة بعد فتح الكتاب، من عرض الشاشة)
+  PdfViewerSizeDelegateProvider? _verticalSizing;
+  PdfViewerSizeDelegateProvider? _horizontalZoomOut;
+
+  // حدود التصغير، تُحسب مرة لكل وضع بعد جاهزية العارض: حتى سُدس عرض الشاشة
+  // في العامودي، وخُمس الصفحة في الأفقي. الهدف نظرة عامة على صفحات كثيرة
+  // لمعرفة أماكن المذكرات (طلب المستخدم 23 أكتوبر). الافتراضي في pdfrx يقف
+  // عند ملء العرض أو الصفحة فلا يصغر أكثر.
+  void _updateZoomLimits() {
+    if (!mounted || !_controller.isReady) return;
+    if (_horizontal) {
+      if (_horizontalZoomOut != null) return;
+      final fit = _controller.alternativeFitScale ?? _controller.minScale;
+      setState(
+        () => _horizontalZoomOut = PdfViewerSizeDelegateProviderLegacy(
+          calculateInitialZoom: _fitPageZoom,
+          useAlternativeFitScaleAsMinScale: false,
+          minScale: fit / 5,
+        ),
+      );
+    } else {
+      if (_verticalSizing != null) return;
+      setState(
+        () => _verticalSizing = PdfViewerSizeDelegateProviderLegacy(
+          useAlternativeFitScaleAsMinScale: false,
+          minScale: _controller.coverScale / 6,
+        ),
+      );
+    }
+  }
 
   // التحديدات المحفوظة، والنشط منها (يُعدَّل من القائمة)
   late final PdfMarks _marks = PdfMarks(widget.fileId);
@@ -110,8 +231,19 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   double? _cardHeight; // ارتفاع المذكرة المفتوحة بعد سحب مقبضها (null = تلقائي)
   bool _cardAutofocus = false; // المذكرة الجديدة تفتح لوحة المفاتيح
   double? _editAnchor; // مكان لمسة إنشاء النص الجديد (نسبة من عرض الصفحة)
+  final _toolbarKey = GlobalKey(); // شريط تنسيق النص (لقياس ارتفاعه)
+  Matrix4? _editRestore; // العرض قبل تحريكه لإظهار النص الذي يُكتب
+  Matrix4? _editShifted; // العرض بعد تحريكنا (إن تغيّر فقد حرّكه المستخدم)
+  double _lastInset = 0; // ارتفاع لوحة المفاتيح في آخر بناء
+  bool _visibleCheckPending = false;
   final _panelKey = GlobalKey(); // لوحة القلم: المذكرة لا ترتفع فوق أسفلها
   final _noteHintKey = GlobalKey<TooltipState>(); // تلميح علامة المذكرة (مرة)
+  bool _bookmarkBusy = false; // نافذة علامة المذكرة مفتوحة
+  bool _exporting = false; // نجهّز نسخة للحفظ أو المشاركة
+  // ارتفاع قائمة التحديد كما رُسمت (بلا الذيل)، لوضعها فوق النص أو تحته
+  double _menuHeight = SelectionMenu.height;
+  // تنسيق السطر الذي يُكتب في المذكرة المفتوحة (اللون والعريض والمائل والحجم)
+  final _noteLines = NoteLinesController();
   late final Future<void> _cardsLoaded;
   InkStroke? _cardLive;
   int _cardInkVersion = 0;
@@ -135,7 +267,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   PageNote? _editing;
   Offset? _textDragStart;
   bool _textDragging = false;
-  final _noteText = TextEditingController();
+  // نص الصفحة بتنسيق على مقاطع (اللون والعريض والمائل والحجم للمحدد أو للكتابة)
+  final _noteText = StyledTextController();
   final _noteFocus = FocusNode();
 
   // السماكة نسبة من عرض الصفحة: من رفيع جدًا 0.0012 إلى عريض جدًا 0.02،
@@ -156,6 +289,19 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     _bookmarks = context.read<BookmarkRepository>();
     _page.value = widget.initialPage ?? 1;
     _reader.addListener(_onReaderChanged);
+    _textMode.addListener(_onTextModeChanged);
+    _controller.addListener(_onViewChanged);
+    _wasMargin = _settings.margin;
+    _wasVertical = _settings.vertical;
+    // سطر جديد يطيل الصندوق للأسفل: يبقى آخره ظاهرًا فوق لوحة المفاتيح
+    _noteText.addListener(() {
+      if (_editing == null || _visibleCheckPending) return;
+      _visibleCheckPending = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _visibleCheckPending = false;
+        _keepEditingVisible();
+      });
+    });
     _marks.addListener(_onMarksChanged);
     _ink.addListener(_onMarksChanged);
     _ink.load();
@@ -183,7 +329,9 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
   @override
   void dispose() {
+    pdfrxPageColorFilter = null;
     _reader.removeListener(_onReaderChanged);
+    _controller.removeListener(_onViewChanged);
     _marks.removeListener(_onMarksChanged);
     _ink.removeListener(_onMarksChanged);
     _ink.dispose();
@@ -192,28 +340,246 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     _noteText.dispose();
     _noteFocus.dispose();
     _cards.dispose();
+    _noteLines.dispose();
     _attachments.dispose();
     _cardText.dispose();
     _marks.dispose();
     _prefetchTimer?.cancel();
     _page.dispose();
+    _textMode.dispose();
     super.dispose();
   }
 
   void _onReaderChanged() {
     if (!mounted) return;
+    final page = _page.value;
+    final switched = _settings.vertical != _wasVertical;
+    _wasVertical = _settings.vertical;
+    final marginChanged = _settings.margin != _wasMargin;
+    _wasMargin = _settings.margin;
+    if (marginChanged && !switched) _refitAfterLayout();
     setState(() {});
     // الألوان مرسومة على الصفحات نفسها، فنعيد رسمها
     if (_controller.isReady) _controller.invalidate();
+    // تبديل العامودي/الأفقي: العارض يعيد ترتيب الصفحات في الإطار التالي،
+    // ثم نرجع لنفس الصفحة بملاءمتها للوضع الجديد
+    if (switched) {
+      _clearAll();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 60), () {
+          if (!mounted || !_controller.isReady) return;
+          _updateZoomLimits();
+          _fitPage(page - 1, animate: false);
+        });
+      });
+    }
   }
 
   ReaderSettings get _settings => _reader.settings;
 
-  Color get _paper => _settings.paperColor;
+  bool get _horizontal => !_settings.vertical;
+
+  // الصفحة index كاملة في الشاشة (الأفقي)، أو أعلاها بعرض الشاشة (العامودي)
+  void _fitPage(int index, {bool animate = true}) {
+    if (!_controller.isReady) return;
+    final layouts = _controller.layout.pageLayouts;
+    if (index < 0 || index >= layouts.length) return;
+    final duration = animate
+        ? const Duration(milliseconds: 220)
+        : Duration.zero;
+    if (_horizontal) {
+      _controller.goTo(
+        _controller.calcMatrixForRect(layouts[index].inflate(_margin)),
+        duration: duration,
+      );
+    } else {
+      _controller.goToPage(pageNumber: index + 1, duration: duration);
+    }
+  }
+
+  // الصفحة الأقرب أفقيًا لنقطة في المستند
+  int _pageNearX(double x) {
+    final layouts = _controller.layout.pageLayouts;
+    var best = 0;
+    var distance = double.infinity;
+    for (var i = 0; i < layouts.length; i++) {
+      final d = (layouts[i].center.dx - x).abs();
+      if (d < distance) {
+        distance = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  void _onInteractionStart(ScaleStartDetails details) {
+    if (!_controller.isReady) return;
+    _zoomAtStart = _controller.currentZoom;
+    if (!_horizontal) return;
+    _snapFrom = _pageNearX(_controller.visibleRect.center.dx);
+  }
+
+  // الحجم الطبيعي في العامودي: الصفحات بعرض الشاشة (مع الهوامش). حوله هامش
+  // صغير يرجع إليه تلقائيًا، فلا يبقى زوم مثل 1.01 أو إزاحة جانبية تمنع التمرير
+  static const double _naturalBand = 0.08;
+  // أقل من هذا = نظرة عامة على صفحات كثيرة (تبقى كما تركها القارئ)
+  static const double _overviewBelow = 0.85;
+
+  double get _naturalRatio => _controller.currentZoom / _controller.coverScale;
+
+  bool get _nearNatural {
+    if (!_controller.isReady) return false;
+    final r = _naturalRatio;
+    return r > _overviewBelow && r < 1 + _naturalBand;
+  }
+
+  // العامودي بعد الإفلات: قرب الحجم الطبيعي (أو بعد قرص صغّر تحته قليلًا)
+  // ترجع الصفحات بعرض الشاشة في منتصفها أفقيًا، والموضع العامودي كما هو.
+  // التمرير العادي بالحجم الطبيعي لا يُلمس (يبقى انزلاقه).
+  void _settleVertical() {
+    if (_horizontal || !_controller.isReady || _drawMode) return;
+    if (!_nearNatural) return;
+    final natural = _controller.coverScale;
+    final zoom = _controller.currentZoom;
+    final view = _controller.visibleRect;
+    final doc = _controller.layout.documentSize;
+    final pinched = (zoom / _zoomAtStart - 1).abs() > 0.002;
+    final offCenter = (view.center.dx - doc.width / 2).abs() > 0.5;
+    if (!pinched && (zoom / natural - 1).abs() < 0.002 && !offCenter) return;
+    scheduleMicrotask(() {
+      if (!mounted || _horizontal || !_controller.isReady) return;
+      _toNatural(view.center.dy);
+    });
+  }
+
+  // الحجم الطبيعي حول الموضع العامودي y (في المستند)
+  void _toNatural(double y, {bool animate = true}) {
+    final natural = _controller.coverScale;
+    final doc = _controller.layout.documentSize;
+    final viewH = _controller.visibleRect.height * _controller.currentZoom;
+    final half = viewH / natural / 2;
+    final cy = doc.height <= half * 2
+        ? doc.height / 2
+        : y.clamp(half, doc.height - half).toDouble();
+    _controller.goTo(
+      _controller.calcMatrixFor(Offset(doc.width / 2, cy), zoom: natural),
+      duration: animate ? const Duration(milliseconds: 180) : Duration.zero,
+    );
+  }
+
+  // تغيّر مساحة القراءة (تدوير الجهاز، الهوامش): إن كانت الصفحة بحجمها الطبيعي
+  // نعيد ملاءمتها بعد أن يعيد العارض الترتيب، فلا تبقى مزاحة
+  void _refitAfterLayout() {
+    if (!_controller.isReady) return;
+    final natural = _horizontal || _nearNatural;
+    if (!natural) return;
+    final page = _page.value;
+    final y =
+        _controller.visibleRect.center.dy /
+        _controller.layout.documentSize.height;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 60), () {
+        if (!mounted || !_controller.isReady) return;
+        if (_horizontal) {
+          _fitPage(page - 1, animate: false);
+        } else {
+          _toNatural(
+            y * _controller.layout.documentSize.height,
+            animate: false,
+          );
+        }
+      });
+    });
+  }
+
+  // زوم يعرض الصفحة index كاملة
+  double _fitZoomOf(int index) {
+    final page = _controller.layout.pageLayouts[index];
+    final view = _controller.visibleRect.size * _controller.currentZoom;
+    return math.min(
+      view.width / (page.width + _margin * 2),
+      view.height / (page.height + _margin * 2),
+    );
+  }
+
+  // بعد الإفلات في الأفقي تستقر صفحة واحدة:
+  // - بلا زوم: إفلات سريع أو سحب أكثر من خُمس الصفحة يقلبها، وإلا ترجع.
+  // - انتهاء قرص (تكبير/تصغير) قرب حجم الصفحة: ترجع الصفحة كاملة، بلا تقليب.
+  // - مكبرة: الانزلاق يكمل داخلها؛ نتوقع أين سيقف، فإن تجاوز حافتها بخُمس
+  //   الشاشة يقلب، وإن تجاوزها أقل يقف عند الحافة نفسها (لا بين صفحتين).
+  // InteractiveViewer يستدعي هذا قبل أن يبدأ انزلاقه، فالحركة في microtask
+  // بعده، وgoTo يوقف الانزلاق ثم يتحرك (كان الانزلاق يلغي حركتنا فتقف الصفحة
+  // بين صفحتين، والانتظار حتى ينتهي كان يجعلها "تعلق").
+  void _onInteractionEnd(ScaleEndDetails details) {
+    if (!_horizontal) {
+      _settleVertical();
+      return;
+    }
+    if (!_controller.isReady || _drawMode) return;
+    final layouts = _controller.layout.pageLayouts;
+    if (layouts.isEmpty) return;
+    final from = _snapFrom.clamp(0, layouts.length - 1);
+    final page = layouts[from];
+    final zoom = _controller.currentZoom;
+    final view = _controller.visibleRect;
+    final fit = _fitZoomOf(from);
+    final zoomed = zoom > fit * 1.08;
+    final pinched = (zoom / _zoomAtStart - 1).abs() > 0.02;
+    // مصغّرة (نظرة عامة على صفحات كثيرة): تتحرك بحرية بلا استقرار على صفحة
+    if (zoom < fit * 0.92) return;
+    final v = details.velocity.pixelsPerSecond;
+
+    void settle(void Function() move) => scheduleMicrotask(() {
+      if (mounted && _horizontal && _controller.isReady) move();
+    });
+    int pageTo(int step) =>
+        (from + (_rtlBook ? -step : step)).clamp(0, layouts.length - 1);
+
+    if (!zoomed) {
+      var step = 0; // +1 الصفحة على يمين الشاشة، -1 على يسارها
+      if (!pinched) {
+        final dx = view.center.dx - page.center.dx;
+        if (v.dx.abs() > 300) {
+          step = v.dx < 0 ? 1 : -1;
+        } else if (dx.abs() > page.width * 0.2) {
+          step = dx > 0 ? 1 : -1;
+        }
+      }
+      settle(() => _fitPage(pageTo(step)));
+      return;
+    }
+    if (pinched) return; // تكبير: يبقى حيث تركه القرص
+
+    // أين سيقف الانزلاق (المحتوى يتبع الإصبع، فالعرض يتحرك عكسه)
+    final shift = Offset(_glideDistance(v.dx), _glideDistance(v.dy)) / zoom;
+    final end = view.shift(-shift);
+    final over = view.width * 0.2;
+    if (end.right > page.right + over) {
+      settle(() => _fitPage(pageTo(1)));
+    } else if (end.left < page.left - over) {
+      settle(() => _fitPage(pageTo(-1)));
+    } else if (end.right > page.right || end.left < page.left) {
+      // يقف عند حافة الصفحة بنفس الزوم، والارتفاع داخل الصفحة
+      final x = end.right > page.right
+          ? page.right - view.width / 2
+          : page.left + view.width / 2;
+      final half = view.height / 2;
+      final y = view.height >= page.height
+          ? page.center.dy
+          : end.center.dy.clamp(page.top + half, page.bottom - half);
+      settle(
+        () => _controller.goTo(
+          _controller.calcMatrixFor(Offset(x, y.toDouble()), zoom: zoom),
+          duration: const Duration(milliseconds: 180),
+        ),
+      );
+    }
+  }
 
   bool get _darkPaper => _settings.darkPaper;
 
-  ReaderChrome get _chrome => ReaderChrome(dark: _darkPaper, paper: _paper);
+  // كل ألوان القارئ من مصدر واحد (ReaderPaper.chrome)، وهو نفسه في لوحة الإعدادات
+  ReaderChrome get _chrome => _settings.chrome;
 
   double get _margin => switch (_settings.margin) {
     ReaderMargin.none => 2,
@@ -222,35 +588,41 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   };
 
   // ألوان الورق على الصفحة نفسها بتحويل خطي دقيق لكل قناة:
-  // أبيض الصفحة ← لون الورق، وأسودها ← لون النص (من ReaderPaper، مكان واحد).
-  // فاتح: screen بـ (نص ÷ ورق) ثم multiply بالورق = نص + قيمة × (ورق − نص).
-  // داكن: عكس، ثم screen بـ (ورق ÷ نص) ثم multiply بالنص = ورق + عكس × (نص − ورق).
+  // أبيض الصفحة ← لون الورق، وأسودها ← لون النص (من ReaderPaper، مكان واحد)،
+  // أي نص + قيمة × (ورق − نص)، في الفاتح والداكن معًا.
+  // المصفوفة تُطبَّق أثناء رسم صورة الصفحة نفسها (pdfrxPageColorFilter في نسخة
+  // pdfrx المحلية third_party/pdfrx)، فتكاد لا تكلف شيئًا. كانت طبقة saveLayer
+  // لكل صفحة ظاهرة (15.6ms للإطار، وبدونها 2ms)، وقبلها طبقات blend (17ms).
   // الصفحات الممسوحة تمر بنفس التحويل فلا يضيع منها شيء (تتغير الألوان فقط).
-  void _paintPaper(Canvas canvas, Rect rect, PdfPage page) {
+  // التحديد والتظليل والقلم تُرسم بعد الصورة فلا يمسها المرشح.
+  // على الورق الداكن يُعكس سطوع الصفحة، والعكس وحده يقلب ألوان الصور والرسوم
+  // (الأحمر يصير سماويًا). فنسبقه بتدوير الصبغة 180 درجة (مصفوفة تحفظ الرمادي)،
+  // فيبقى النص بلون النص بالضبط، وتبقى الصور والرسوم بصبغاتها الأصلية بسطوع
+  // معكوس. التحديد والتظليل والقلم لا يمسها المرشح (تُرسم بعد الصورة).
+  static const List<double> _hueTurn = [
+    -0.574, 1.430, 0.144, //
+    0.426, 0.430, 0.144, //
+    0.426, 1.430, -0.856, //
+  ];
+
+  ColorFilter? _paperFilter() {
     final paper = _settings.paperColor;
     final ink = _settings.inkColor;
-    void layer(Color color, BlendMode mode) => canvas.drawRect(
-      rect,
-      Paint()
-        ..color = color
-        ..blendMode = mode,
-    );
-    // نسبة لونين لكل قناة (لا تتجاوز 1)
-    Color ratio(Color a, Color b) => Color.from(
-      alpha: 1,
-      red: b.r == 0 ? 1 : (a.r / b.r).clamp(0.0, 1.0),
-      green: b.g == 0 ? 1 : (a.g / b.g).clamp(0.0, 1.0),
-      blue: b.b == 0 ? 1 : (a.b / b.b).clamp(0.0, 1.0),
-    );
-
-    if (_settings.darkPaper) {
-      layer(Colors.white, BlendMode.difference);
-      layer(ratio(paper, ink), BlendMode.screen);
-      layer(ink, BlendMode.multiply);
-      return;
-    }
-    layer(ratio(ink, paper), BlendMode.screen);
-    layer(paper, BlendMode.multiply);
+    if (paper == Colors.white && ink == Colors.black) return null;
+    final turn = _settings.darkPaper;
+    // صف القناة at: نص + (ورق − نص) × قيمة القناة (بعد تدوير الصبغة إن كان داكنًا)
+    List<double> row(double p, double i, int at) => [
+      for (var k = 0; k < 3; k++)
+        turn ? (p - i) * _hueTurn[at * 3 + k] : (k == at ? p - i : 0),
+      0,
+      i * 255,
+    ];
+    return ColorFilter.matrix([
+      ...row(paper.r, ink.r, 0),
+      ...row(paper.g, ink.g, 1),
+      ...row(paper.b, ink.b, 2),
+      0, 0, 0, 1, 0, //
+    ]);
   }
 
   void _onPageChanged(int? page) {
@@ -260,16 +632,102 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     _schedulePrefetch();
   }
 
+  // ------------------------- حفظ نسخة / مشاركة نسخة -------------------------
+
+  // نسخة من الكتاب بالتظليل والقلم ونص الصفحة (pdf_export.dart)
+  Future<(Uint8List, String)> _buildCopy() async {
+    final original = await File(widget.filePath).readAsBytes();
+    final pages = <int, PageAnnotations>{
+      for (var i = 0; i < _pageCount; i++)
+        i: PageAnnotations(
+          marks: _marks.forPage(i),
+          strokes: _ink.forPage(i),
+          notes: _notes.forPage(i),
+        ),
+    };
+    final bytes = await exportAnnotatedPdf(original, pages);
+    final base = p.basenameWithoutExtension(widget.fileName);
+    return (bytes, '$base.pdf');
+  }
+
+  Future<void> _withCopy(
+    Future<void> Function(Uint8List bytes, String name) action,
+  ) async {
+    if (_exporting) return;
+    final s = AppStrings.of(context);
+    _clearAll();
+    setState(() => _exporting = true);
+    showAppMessage(context, s.preparingCopy);
+    try {
+      final (bytes, name) = await _buildCopy();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      await action(bytes, name);
+    } catch (e) {
+      if (mounted) showAppMessage(context, '${s.exportFailed}: $e');
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  Future<void> _saveCopy() => _withCopy((bytes, name) async {
+    final s = AppStrings.of(context);
+    final path = await FilePicker.saveFile(
+      dialogTitle: s.saveCopy,
+      fileName: name,
+      bytes: bytes,
+    );
+    if (path == null || !mounted) return; // أُلغي
+    showAppMessage(context, s.savedSuccessfully);
+  });
+
+  Future<void> _shareCopy() {
+    // المقاس قبل أي await (نافذة المشاركة على الأجهزة اللوحية)
+    final screen = MediaQuery.sizeOf(context);
+    final origin = Rect.fromLTWH(screen.width - 56, 0, 56, 56);
+    return _withCopy((bytes, name) async {
+      final dir = await getTemporaryDirectory();
+      final file = File(p.join(dir.path, name));
+      await file.writeAsBytes(bytes, flush: true);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/pdf', name: name)],
+          subject: widget.fileName,
+          sharePositionOrigin: origin,
+        ),
+      );
+    });
+  }
+
   Future<void> _toggleBookmark() async {
     final s = AppStrings.of(context);
     final added = await _bookmarks.togglePage(widget.fileId, _page.value);
     if (!mounted) return;
-    showAppMessage(context, added ? s.bookmarkAdded : s.bookmarkRemoved);
+    showAppMessage(
+      context,
+      added ? s.bookmarkAdded : s.bookmarkRemoved,
+      leadingImage: added ? owlSaluteImage : null,
+    );
+  }
+
+  // القراءة النصية: تبدأ من صفحة العارض، والرجوع منها يفتح الصفحة التي وصلها
+  void _onTextModeChanged() {
+    if (!mounted) return;
+    _clearAll();
+    setState(() => _drawMode = false);
+    if (!_textMode.value) {
+      final page = _page.value;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _controller.isReady) {
+          _controller.goToPage(pageNumber: page);
+        }
+      });
+    }
   }
 
   void _openSettings() {
     _clearAll();
-    ReaderSettingsSheet.show(context, _reader, showLayout: false);
+    ReaderSettingsSheet.show(context, _reader, _textMode);
   }
 
   // ------------------------- التحديد والتظليل -------------------------
@@ -279,18 +737,22 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   void _paintMarks(Canvas canvas, Rect rect, PdfPage page) {
     final index = page.pageNumber - 1;
     final marks = _marks.forPage(index);
-    final active = [
+    final focus = [
       for (final m in _active)
         if (m.page == index) ...m.rects,
+    ];
+    final active = [
       if (_hasOcr && _ocrPage == index) ...rectsFor(_ocrWords, _ocrA, _ocrB),
     ];
-    if (marks.isEmpty && active.isEmpty) return;
+    if (marks.isEmpty && active.isEmpty && focus.isEmpty) return;
     canvas.save();
     canvas.translate(rect.left, rect.top);
     MarksPainter(
       marks: marks,
       selection: active.isEmpty ? null : active,
       selectionColor: _chrome.selection,
+      focus: focus.isEmpty ? null : focus,
+      focusColor: _chrome.strong.withValues(alpha: 0.6),
     ).paint(canvas, rect.size);
     canvas.restore();
   }
@@ -414,7 +876,11 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     }
     await _bookmarks.addText(widget.fileId, page, text, color: color);
     if (!mounted) return;
-    showAppMessage(context, AppStrings.of(context).bookmarkAdded);
+    showAppMessage(
+      context,
+      AppStrings.of(context).bookmarkAdded,
+      leadingImage: owlSaluteImage,
+    );
     _clearAll();
   }
 
@@ -425,8 +891,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       context: context,
       builder: (_) => _InputDialog(
         title: s.markNoteTitle,
+        hint: s.markNoteHint,
         confirm: s.saveNote,
         initial: _active.isEmpty ? '' : (_active.first.note ?? ''),
+        chrome: _chrome,
       ),
     );
     if (result == null || !mounted) return;
@@ -562,7 +1030,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         showReadingWait(context, _chrome);
       });
     }
-    final words = await _scanned.words(index);
+    final words = await _scanned.words(index, urgent: true);
     message?.cancel();
     if (shown && mounted) hideReadingWait(context);
     if (!mounted || words.isEmpty) return;
@@ -655,13 +1123,15 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   }
 
   // قراءة مسبقة: بعد توقف التمرير تُقرأ الصفحة الحالية والتاليتان في الخلفية،
-  // فيكون التحديد في الصفحات الممسوحة فوريًا غالبًا
+  // فيكون التحديد في الصفحات الممسوحة فوريًا غالبًا. ما بقي في الطابور من
+  // مكان سابق يُلغى، فالصفحة البعيدة لا تنتظر صفحات تركها القارئ.
   void _schedulePrefetch() {
     _prefetchTimer?.cancel();
-    _prefetchTimer = Timer(const Duration(milliseconds: 700), () {
+    _prefetchTimer = Timer(const Duration(milliseconds: 400), () {
       if (!mounted || !_controller.isReady) return;
       final pages = _controller.pages;
       final current = _page.value - 1;
+      _scanned.keepOnly({current, current + 1, current + 2});
       for (var i = current; i <= current + 2 && i < pages.length; i++) {
         if (i >= 0) _scanned.prefetch(pages[i]);
       }
@@ -711,16 +1181,19 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   // المفتوحة إن كانت الأداة كتابة (شريط النص السفلي بلا ألوان، طلب المستخدم)
   void _selectInkColor(int index) {
     setState(() => _inkColorIndex = index);
+    // نص الصفحة: اللون على المحدد فقط، أو على ما سيُكتب بعده
+    // (كان note.color = اللون فيتلون الصندوق كله)
     final note = _editing;
     if (note != null) {
-      note.color = _inkColor;
-      _controller.invalidate();
-      _notes.save();
+      final color = _inkColor;
+      _noteText.applyStyle((s) => s.copyWith(color: color));
     }
+    // المذكرة: اللون على المحدد فقط، أو على ما سيُكتب بعده إن لم يكن تحديد
+    // (كان card.color = اللون فيتلون النص كله، حتى ما كُتب قبل)
     final card = _openCard;
     if (card != null && _typingTool) {
-      card.color = _inkColor;
-      _cards.changed();
+      final color = _inkColor;
+      _noteLines.applyStyle((s) => s.copyWith(color: color));
       _cards.save();
     }
   }
@@ -986,12 +1459,30 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
   void _startEditing(PageNote note) {
     _editAnchor = null;
-    _noteText.text = note.text;
+    // ملاحظة قديمة بلا مقاطع: عريضها ومائلها وخطها تحتها (للصندوق كله) تصير
+    // مقطعًا واحدًا بنفس الشكل، فيمكن بعدها تغيير جزء منها دون الباقي
+    if (note.runs == null && (note.bold || note.italic || note.underline)) {
+      note.runs = Runs.uniform(
+        note.text.length,
+        RunStyle(
+          bold: note.bold,
+          italic: note.italic,
+          underline: note.underline,
+        ),
+      );
+      note.bold = false;
+      note.italic = false;
+      note.underline = false;
+    }
+    _noteText.setStyled(note.text, note.runs ?? Runs.uniform(note.text.length));
     setState(() => _editing = note);
     _controller.invalidate();
     _noteFocus.requestFocus();
     // بعد ظهور لوحة المفاتيح: تحريك الصفحة إن غطّت الملاحظة
-    Future.delayed(const Duration(milliseconds: 400), _keepEditingVisible);
+    _editRestore = null;
+    _editShifted = null;
+    // إن كانت لوحة المفاتيح مفتوحة أصلًا؛ وإلا يُستدعى عند تغير ارتفاعها (build)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _keepEditingVisible());
   }
 
   // الملاحظة الفارغة تُحذف، والباقي يُحفظ
@@ -1003,11 +1494,22 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       _notes.remove(note);
     } else {
       note.text = text;
+      note.runs = Runs.fit(_noteText.runs, text.length);
       _notes.changed();
     }
     _notes.save();
     _noteFocus.unfocus();
     setState(() => _editing = null);
+    // العرض يرجع كما كان قبل أن نحركه لإظهار النص (إن لم يحركه المستخدم بعدها)
+    final restore = _editRestore;
+    if (restore != null &&
+        _controller.isReady &&
+        _editShifted != null &&
+        _controller.value == _editShifted) {
+      _controller.value = restore;
+    }
+    _editRestore = null;
+    _editShifted = null;
     if (_controller.isReady) _controller.invalidate();
   }
 
@@ -1032,18 +1534,27 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     );
   }
 
+  // يُبقي النص الذي يُكتب فوق شريط التنسيق ولوحة المفاتيح: يحرك العرض فقط
+  // (مكان النص المحفوظ على الصفحة لا يتغير)، ويحفظ العرض الأصلي ليرجع إليه.
+  // يُستدعى بعد أن يتغير ارتفاع لوحة المفاتيح فعلًا وعند كل تغيير في النص،
+  // لا بعد مهلة ثابتة (كانت 400ms فتسبق فتح اللوحة فيبقى النص مختفيًا تحتها).
   void _keepEditingVisible() {
-    if (!mounted) return;
+    if (!mounted || _editing == null || !_controller.isReady) return;
     final g = _editingGeometry();
-    final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-    if (g == null || box == null) return;
-    // فوق شريط تنسيق النص (~120) الذي يغطي أسفل العارض فوق لوحة المفاتيح
-    final visible = box.size.height - 132;
-    final overflow = g.box.top + g.fontSize * 2.4 - visible;
-    if (overflow > 0) {
-      _controller.value = Matrix4.translationValues(0, -overflow, 0)
-        ..multiply(_controller.value);
-    }
+    final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (g == null || stack == null || !stack.hasSize) return;
+    // ارتفاع شريط التنسيق الحقيقي (يغطي أسفل العارض فوق لوحة المفاتيح)
+    final bar = _toolbarKey.currentContext?.findRenderObject() as RenderBox?;
+    final barHeight = bar != null && bar.hasSize ? bar.size.height : 0.0;
+    final visibleBottom = stack.size.height - barHeight - 12;
+    // يكفي أن يظهر أول النص وما بعده بسطرين (الصندوق الطويل يُمرر داخله)
+    final wanted = math.min(g.box.bottom, g.box.top + g.fontSize * 4) + 8;
+    final overflow = wanted - visibleBottom;
+    if (overflow <= 0.5) return;
+    _editRestore ??= _controller.value.clone();
+    _controller.value = Matrix4.translationValues(0, -overflow, 0)
+      ..multiply(_controller.value);
+    _editShifted = _controller.value.clone();
   }
 
   // ارتفاع الصفحة إلى عرضها (لتحويل حركة السحب إلى نسبة من الارتفاع)
@@ -1062,6 +1573,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         final note = _editing;
         if (note == null) return const SizedBox.shrink();
         note.text = _noteText.text; // للاتجاه والمحاذاة أثناء الكتابة
+        note.runs = _noteText.runs; // ولقياس الصندوق بالمقاطع
         final direction =
             strongDirection(note.text) ?? Directionality.of(context);
         _followDirection(note, direction);
@@ -1130,54 +1642,22 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         );
 
         // مقبض العرض على الحافة اليمنى، ودائرة الدوران فوق المنتصف، ومقبض الحجم
-        // في الزاوية السفلية: سحبه للخارج يكبّر الخط والصندوق معًا وللداخل يصغّرهما
+        // في الزاوية السفلية: سحبه للخارج يكبّر الخط والصندوق معًا وللداخل يصغّرهما.
+        //
+        // هامش شفاف m حول الصندوق: فلاتر لا يقبل اللمس خارج حدود الويدجت، والمقابض
+        // كانت خارج حدوده (الزاوية -16، العرض -9، الدوران -38) فيستجيب جزؤها
+        // الداخلي فقط "يشتغل ولا يشتغل" ودائرة الدوران لا تستجيب أبدًا. الهامش
+        // نفسه لا يلتقط اللمس (لا شيء فيه)، فلمسة فيه تصل للصفحة كما كانت.
+        const m = 44.0;
         final editor = Stack(
           clipBehavior: Clip.none,
           children: [
-            box,
+            Padding(padding: const EdgeInsets.all(m), child: box),
+            // مقبض العرض أولًا، فيأتي مقبض الحجم فوقه في الزاوية (كان يغطيه)
             Positioned(
-              right: -16,
-              bottom: -16,
-              child: Semantics(
-                label: s.textSize,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanUpdate: (d) {
-                    _editAnchor = null;
-                    final grow = (d.delta.dx + d.delta.dy) / 2;
-                    final factor = 1 + grow / math.max(60, g.box.width);
-                    final size = (note.size * factor).clamp(0.015, 0.12);
-                    final applied = size / note.size;
-                    note.size = size;
-                    note.w = (note.w * applied).clamp(0.08, 1.0);
-                    setState(() {});
-                    _controller.invalidate();
-                  },
-                  onPanEnd: (_) => _notes.save(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: c.surface,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: c.strong, width: 1.6),
-                      ),
-                      child: Icon(
-                        Icons.open_in_full,
-                        size: 12,
-                        color: c.strong,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: -9,
-              top: 0,
-              bottom: 0,
+              right: m - 9 - 6,
+              top: m,
+              bottom: m,
               child: Center(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -1206,9 +1686,49 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               ),
             ),
             Positioned(
-              top: -38,
-              left: 0,
-              right: 0,
+              right: m - 16 - 6,
+              bottom: m - 16 - 6,
+              child: Semantics(
+                label: s.textSize,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: (d) {
+                    _editAnchor = null;
+                    final grow = (d.delta.dx + d.delta.dy) / 2;
+                    final factor = 1 + grow / math.max(60, g.box.width);
+                    final size = (note.size * factor).clamp(0.015, 0.12);
+                    final applied = size / note.size;
+                    note.size = size;
+                    note.w = (note.w * applied).clamp(0.08, 1.0);
+                    setState(() {});
+                    _controller.invalidate();
+                  },
+                  onPanEnd: (_) => _notes.save(),
+                  // منطقة لمس 46 حول دائرة 22
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: c.surface,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: c.strong, width: 1.6),
+                      ),
+                      child: Icon(
+                        Icons.open_in_full,
+                        size: 12,
+                        color: c.strong,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: m - 38 - 6,
+              left: m,
+              right: m,
               child: Center(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -1228,15 +1748,22 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     _controller.invalidate();
                   },
                   onPanEnd: (_) => _notes.save(),
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: c.strong, width: 1.6),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: c.surface,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: c.strong, width: 1.6),
+                      ),
+                      child: Icon(
+                        Icons.rotate_right,
+                        size: 17,
+                        color: c.strong,
+                      ),
                     ),
-                    child: Icon(Icons.rotate_right, size: 17, color: c.strong),
                   ),
                 ),
               ),
@@ -1244,13 +1771,14 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           ],
         );
 
-        // الصندوق قبل الدوران (مكانه بلا دوران)، والدوران حول مركزه
+        // الصندوق قبل الدوران (مكانه بلا دوران)، والدوران حول مركزه (الهامش
+        // متساوٍ من كل جهة فالمركز نفسه)
         final unrotated = g.box;
         return Stack(
           children: [
             Positioned(
-              left: unrotated.left,
-              top: unrotated.top,
+              left: unrotated.left - m,
+              top: unrotated.top - m,
               child: Transform.rotate(
                 angle: note.rot,
                 alignment: Alignment.center,
@@ -1396,31 +1924,19 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       context: context,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (sheet) => Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: c.line),
+      builder: (sheet) => _menuSheet(sheet, [
+        ListTile(
+          leading: AppIcon(AppIcons.mic, size: 22, color: c.strong),
+          title: Text(s.recordAudio, style: TextStyle(color: c.ink)),
+          subtitle: Text(s.recordLimit, style: TextStyle(color: c.muted)),
+          onTap: () => Navigator.of(sheet).pop(true),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: AppIcon(AppIcons.mic, size: 22, color: c.strong),
-              title: Text(s.recordAudio, style: TextStyle(color: c.ink)),
-              subtitle: Text(s.recordLimit, style: TextStyle(color: c.muted)),
-              onTap: () => Navigator.of(sheet).pop(true),
-            ),
-            ListTile(
-              leading: AppIcon(AppIcons.audioFile, size: 22, color: c.strong),
-              title: Text(s.chooseAudioFile, style: TextStyle(color: c.ink)),
-              onTap: () => Navigator.of(sheet).pop(false),
-            ),
-          ],
+        ListTile(
+          leading: AppIcon(AppIcons.audioFile, size: 22, color: c.strong),
+          title: Text(s.chooseAudioFile, style: TextStyle(color: c.ink)),
+          onTap: () => Navigator.of(sheet).pop(false),
         ),
-      ),
+      ]),
     );
     if (choice == null || !mounted) return;
 
@@ -1459,6 +1975,33 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     await _attachments.save();
   }
 
+  // لوحة قائمة صغيرة بألوان القراءة: فوق أزرار أندرويد (شريط الحالة مخفي
+  // فالمساحة الآمنة صفر، فنأخذ ارتفاع الأزرار نفسها)، وعلى Material حتى يظهر
+  // أثر اللمس في الصفوف (كان DecoratedBox يخفيه)
+  Widget _menuSheet(BuildContext sheet, List<Widget> rows) {
+    final c = _chrome;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        12,
+        0,
+        12,
+        12 + MediaQuery.viewPaddingOf(sheet).bottom,
+      ),
+      child: Material(
+        color: c.surface,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: c.line),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(mainAxisSize: MainAxisSize.min, children: rows),
+        ),
+      ),
+    );
+  }
+
   // ضغطة مطولة: حذف (واستبدال للصورة). الممحاة لا تمسها
   Future<void> _attachmentMenu(PageAttachment a) async {
     final s = AppStrings.of(context);
@@ -1467,37 +2010,25 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       context: context,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (sheet) => Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: c.line),
+      builder: (sheet) => _menuSheet(sheet, [
+        if (a.noteId != null)
+          ListTile(
+            leading: AppIcon(AppIcons.pageMove, size: 22, color: c.ink),
+            title: Text(s.moveToPage, style: TextStyle(color: c.ink)),
+            onTap: () => Navigator.of(sheet).pop('page'),
+          ),
+        if (!a.isAudio)
+          ListTile(
+            leading: AppIcon(AppIcons.imageAdd, size: 22, color: c.ink),
+            title: Text(s.replaceImage, style: TextStyle(color: c.ink)),
+            onTap: () => Navigator.of(sheet).pop('replace'),
+          ),
+        ListTile(
+          leading: AppIcon(AppIcons.trash, size: 22, color: AppColors.red),
+          title: Text(s.delete, style: TextStyle(color: AppColors.red)),
+          onTap: () => Navigator.of(sheet).pop('delete'),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (a.noteId != null)
-              ListTile(
-                leading: AppIcon(AppIcons.pageMove, size: 22, color: c.ink),
-                title: Text(s.moveToPage, style: TextStyle(color: c.ink)),
-                onTap: () => Navigator.of(sheet).pop('page'),
-              ),
-            if (!a.isAudio)
-              ListTile(
-                leading: AppIcon(AppIcons.imageAdd, size: 22, color: c.ink),
-                title: Text(s.replaceImage, style: TextStyle(color: c.ink)),
-                onTap: () => Navigator.of(sheet).pop('replace'),
-              ),
-            ListTile(
-              leading: AppIcon(AppIcons.trash, size: 22, color: AppColors.red),
-              title: Text(s.delete, style: TextStyle(color: AppColors.red)),
-              onTap: () => Navigator.of(sheet).pop('delete'),
-            ),
-          ],
-        ),
-      ),
+      ]),
     );
     if (!mounted) return;
     if (action == 'page') {
@@ -1621,6 +2152,52 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     _attachments.save();
   }
 
+  // ---- سحب أيقونة أو مرفق عبر الصفحات ----
+  // مكان العنصر في المستند كله أثناء السحب (بلا حصر في صفحة)، فيُعرف من
+  // مجموع الحركة أي صفحة صار فوقها
+  Offset? _dragDoc;
+
+  Offset _docOf(int page, double x, double y) {
+    final pr = _controller.layout.pageLayouts[page];
+    return Offset(pr.left + x * pr.width, pr.top + y * pr.height);
+  }
+
+  // يضيف حركة الإصبع (بكسل الشاشة) ويرجع الصفحة والمكان النسبي فيها: الصفحة
+  // التي تحتوي النقطة، وفي الفراغ بين صفحتين أقربهما
+  ({int page, double x, double y})? _followDrag(Offset screenDelta) {
+    final start = _dragDoc;
+    if (start == null || !_controller.isReady) return null;
+    final doc = start + screenDelta / _controller.currentZoom;
+    _dragDoc = doc;
+    final layouts = _controller.layout.pageLayouts;
+    var best = 0;
+    var bestDistance = double.infinity;
+    for (var i = 0; i < layouts.length; i++) {
+      final r = layouts[i];
+      final dx = doc.dx < r.left
+          ? r.left - doc.dx
+          : math.max(0.0, doc.dx - r.right);
+      final dy = doc.dy < r.top
+          ? r.top - doc.dy
+          : math.max(0.0, doc.dy - r.bottom);
+      final distance = dx * dx + dy * dy;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = i;
+        if (distance == 0) break;
+      }
+    }
+    final r = layouts[best];
+    return (
+      page: best,
+      x: ((doc.dx - r.left) / r.width).clamp(0.0, 0.97),
+      y: ((doc.dy - r.top) / r.height).clamp(0.0, 0.97),
+    );
+  }
+
+  bool _inExistingNote(PageAttachment a) =>
+      a.noteId != null && _cards.all.any((c) => c.id == a.noteId);
+
   // مكان لمسة من الشاشة إلى طبقة العارض
   Offset? _toStack(Offset global) {
     final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
@@ -1734,7 +2311,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   // إصبع واحد: في وضع القلم يحركه، وخارجه يمرر الصفحة كالعادة
   Widget _attachmentLayer() {
     return ListenableBuilder(
-      listenable: Listenable.merge([_controller, _attachments]),
+      // _cards: حذف مذكرة يُظهر مرفقاتها اليتيمة فورًا
+      listenable: Listenable.merge([_controller, _attachments, _cards]),
       builder: (context, _) {
         if (!_controller.isReady || _attachments.all.isEmpty) {
           return const SizedBox.shrink();
@@ -1753,10 +2331,11 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         final items = <Widget>[];
 
         for (final a in _attachments.all) {
-          if (a.noteId != null || a.page >= layouts.length) continue;
+          // داخل مذكرة موجودة: يظهر في شريطها لا هنا. مذكرته لم تعد موجودة
+          // (حُذفت من العارض القديم مثلًا): يظهر على الصفحة حتى لا يضيع
+          if (_inExistingNote(a) || a.page >= layouts.length) continue;
           final pr = layouts[a.page];
           final scaledWidth = pr.width * zoom;
-          final scaledHeight = pr.height * zoom;
           final at = MatrixUtils.transformPoint(
             _controller.value,
             Offset(pr.left + a.x * pr.width, pr.top + a.y * pr.height),
@@ -1823,11 +2402,12 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                           ),
                   ),
                 ),
-                // مقبض الحجم في وضع القلم (والقرص بإصبعين في أي وقت)
+                // مقبض الحجم في وضع القلم (والقرص بإصبعين في أي وقت)، داخل
+                // حدود الصورة: خارجها لا يقبل فلاتر اللمس (كان -14 فنصفه ميت)
                 if (_drawMode && !dragging)
                   Positioned(
-                    right: -14,
-                    bottom: -14,
+                    right: 0,
+                    bottom: 0,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onPanUpdate: (d) {
@@ -1881,7 +2461,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   onLongPressMoveUpdate: (d) =>
                       _moveAttachDrag(d.globalPosition),
                   onLongPressEnd: (_) => _endAttachDrag(),
-                  onScaleStart: (_) => _pinchW = a.w,
+                  onScaleStart: (_) {
+                    _pinchW = a.w;
+                    _dragDoc = _docOf(a.page, a.x, a.y);
+                  },
                   onScaleUpdate: (d) {
                     if (d.pointerCount >= 2) {
                       // إصبعان: حجم الصورة (الصوت أيقونة ثابتة)
@@ -1890,20 +2473,21 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                         _attachments.changed();
                       }
                     } else if (_drawMode) {
-                      a.x = (a.x + d.focalPointDelta.dx / scaledWidth).clamp(
-                        0.0,
-                        0.97,
-                      );
-                      a.y = (a.y + d.focalPointDelta.dy / scaledHeight).clamp(
-                        0.0,
-                        0.97,
-                      );
+                      // في وضع القلم يتحرك عبر الصفحات كأيقونات المذكرات
+                      final hit = _followDrag(d.focalPointDelta);
+                      if (hit == null) return;
+                      a.page = hit.page;
+                      a.x = hit.x;
+                      a.y = hit.y;
                       _attachments.changed();
                     } else {
                       _scrollBy(d.focalPointDelta);
                     }
                   },
-                  onScaleEnd: (_) => _attachments.save(),
+                  onScaleEnd: (_) {
+                    _dragDoc = null;
+                    _attachments.save();
+                  },
                   child: AnimatedScale(
                     scale: dragging ? 1.06 : 1,
                     duration: const Duration(milliseconds: 120),
@@ -1942,6 +2526,17 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   }
 
   Future<void> _bookmarkNote(NoteCard card) async {
+    // لمستان سريعتان كانتا تفتحان نافذتين: واحدة فقط حتى تُغلق
+    if (_bookmarkBusy) return;
+    _bookmarkBusy = true;
+    try {
+      await _bookmarkNoteOnce(card);
+    } finally {
+      _bookmarkBusy = false;
+    }
+  }
+
+  Future<void> _bookmarkNoteOnce(NoteCard card) async {
     final s = AppStrings.of(context);
     final bookmarked = _bookmarks.noteBookmark(widget.fileId, card.id) != null;
     final action = await showNoteBookmarkDialog(
@@ -2027,8 +2622,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     final card = NoteCard(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       page: page,
-      x: point.dx.clamp(0.0, 0.4),
-      y: point.dy.clamp(0.0, 0.9),
+      // أيقونتها في مكان اللمسة. كان x محصورًا في 0.4 لأن المذكرة كانت تُفتح على
+      // الصفحة بعرض 0.6، وهي الآن تُفتح فوق لوحة المفاتيح فلا حاجة له
+      x: point.dx.clamp(0.0, 0.97),
+      y: point.dy.clamp(0.0, 0.97),
     );
     _cards.add(card);
     _cards.save();
@@ -2073,7 +2670,6 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               at.dy > size.height + 40) {
             continue;
           }
-          final scaledWidth = pr.width * _controller.currentZoom;
           icons.add(
             Positioned(
               left: at.dx - 6,
@@ -2083,19 +2679,29 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 label: AppStrings.of(context).noteTool,
                 child: GestureDetector(
                   onTap: () => _openCardAt(card),
+                  // السحب يتبع الإصبع في المستند كله، فتنتقل إلى الصفحة التي
+                  // فوقها أو تحتها (كان x وy محصورين في صفحتها فتقف عند حافتها)
+                  onPanStart: (_) =>
+                      _dragDoc = _docOf(card.page, card.x, card.y),
                   onPanUpdate: (d) {
-                    card.x = (card.x + d.delta.dx / scaledWidth).clamp(
-                      0.0,
-                      0.97,
-                    );
-                    card.y =
-                        (card.y +
-                                d.delta.dy /
-                                    (scaledWidth * _pageAspect(card.page)))
-                            .clamp(0.0, 0.97);
+                    final hit = _followDrag(d.delta);
+                    if (hit == null) return;
+                    card.page = hit.page;
+                    card.x = hit.x;
+                    card.y = hit.y;
                     _cards.changed();
                   },
-                  onPanEnd: (_) => _cards.save(),
+                  onPanEnd: (_) {
+                    _dragDoc = null;
+                    _cards.save();
+                    // علامتها (إن وُجدت) تفتح على صفحتها الجديدة
+                    _bookmarks.syncNote(
+                      lectureId: widget.fileId,
+                      noteId: card.id,
+                      page: card.page + 1,
+                      preview: _notePreview(card),
+                    );
+                  },
                   // مرفق مسحوب فوقها: تكبر قليلًا بحلقة حتى يُفلت فيها
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 140),
@@ -2167,16 +2773,29 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             final panel =
                 _panelKey.currentContext?.findRenderObject() as RenderBox?;
             final measured = panel != null && panel.hasSize;
-            // اللوحة ظهرت في هذا الإطار: نعيد البناء بعده بمقاسها
-            if (_drawMode && !measured) {
+            // المقاس من الإطار السابق، واللوحة يتغير ارتفاعها مع الأداة (القلم
+            // يضيف نوع الخط والسماكة فكانت تغطي رأس المذكرة). بعد كل إطار:
+            // إن تغير ارتفاعها عما بُني به نعيد البناء بالمقاس الجديد (يستقر
+            // فورًا لأن البناء التالي يطابقه)
+            final usedHeight = _drawMode && measured ? panel.size.height : -1.0;
+            if (_drawMode) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() {});
+                if (!mounted || !_drawMode) return;
+                final now =
+                    _panelKey.currentContext?.findRenderObject() as RenderBox?;
+                if (now != null &&
+                    now.hasSize &&
+                    now.size.height != usedHeight) {
+                  setState(() {});
+                }
               });
             }
             final panelBottom = _drawMode && measured
                 ? 6 + panel.size.height + 8
                 : 24.0;
-            final maxHeight = (area.maxHeight - panelBottom).clamp(
+            // الصندوق يُرسم بارتفاع height + bottomPad (فوق أزرار أندرويد بلا
+            // لوحة مفاتيح)، فيُطرح bottomPad هنا وإلا علا فوق اللوحة بمقداره
+            final maxHeight = (area.maxHeight - panelBottom - bottomPad).clamp(
               minHeight,
               double.infinity,
             );
@@ -2312,6 +2931,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                                       child: NoteLinesEditor(
                                         key: ValueKey(card.id),
                                         text: card.text,
+                                        runs: card.runs,
+                                        controller: _noteLines,
                                         readOnly: drawing,
                                         autofocus: _cardAutofocus,
                                         cursorColor: c.strong,
@@ -2323,8 +2944,9 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                                               ? c.ink
                                               : Color(card.color!),
                                         ),
-                                        onChanged: (v) {
+                                        onChanged: (v, runs) {
                                           card.text = v;
+                                          card.runs = runs;
                                           _cardText.text = v;
                                         },
                                       ),
@@ -2368,6 +2990,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                               },
                             ),
                           ),
+                          // تنسيق الكتابة (فوق لوحة المفاتيح): يظهر في الكتابة فقط
+                          if (!drawing) _noteFormatRow(),
                         ],
                       ),
                     ),
@@ -2376,6 +3000,85 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  // صف تنسيق المذكرة: عريض، مائل، تحته خط، وحجم أصغر/أكبر. يخص المحدد فقط،
+  // أو ما سيُكتب بعده إن لم يكن تحديد. الأزرار تُظهر النمط عند المؤشر.
+  Widget _noteFormatRow() {
+    final c = _chrome;
+    final s = AppStrings.of(context);
+    return ListenableBuilder(
+      listenable: _noteLines,
+      builder: (context, _) {
+        final active = _noteLines.activeStyle;
+
+        Widget toggle(
+          IconData icon,
+          String label,
+          bool on,
+          RunStyle Function(RunStyle) change,
+        ) => Semantics(
+          button: true,
+          toggled: on,
+          label: label,
+          excludeSemantics: true,
+          child: InkWell(
+            onTap: () => _noteLines.applyStyle(change),
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              width: 44,
+              height: 38,
+              decoration: BoxDecoration(
+                color: on ? c.accent : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 21, color: on ? c.strong : c.ink),
+            ),
+          ),
+        );
+
+        // الحجم نسبة من الخط الأساسي، بخطوات، بين 0.6 و2.4
+        RunStyle Function(RunStyle) size(double step) =>
+            (r) => r.copyWith(scale: (r.scale * step).clamp(0.6, 2.4));
+
+        return Container(
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: c.strong.withValues(alpha: 0.2)),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // قيمة مطلقة من الحالة الحالية حتى يتطابق كل المحدد
+              toggle(
+                Icons.format_bold,
+                s.formatBold,
+                active.bold,
+                (r) => r.copyWith(bold: !active.bold),
+              ),
+              toggle(
+                Icons.format_italic,
+                s.formatItalic,
+                active.italic,
+                (r) => r.copyWith(italic: !active.italic),
+              ),
+              toggle(
+                Icons.format_underline,
+                s.formatUnderline,
+                active.underline,
+                (r) => r.copyWith(underline: !active.underline),
+              ),
+              toggle(Icons.text_decrease, s.smallerText, false, size(1 / 1.15)),
+              toggle(Icons.text_increase, s.largerText, false, size(1.15)),
+            ],
+          ),
         );
       },
     );
@@ -2442,6 +3145,16 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
     void pick(InkTool t) {
       if (t != _tool) _finishNote();
+      // الرسم داخل مذكرة مفتوحة: الحقل يصير للقراءة فقط لكنه يبقى مركّزًا
+      // فتبقى لوحة المفاتيح تغطي المذكرة، فنغلقها (النص والتنسيق باقيان)
+      final drawing =
+          t == InkTool.pen ||
+          t == InkTool.pencil ||
+          t == InkTool.shape ||
+          t == InkTool.eraser;
+      if (_openCard != null && drawing) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
       setState(() => _tool = t);
     }
 
@@ -2670,6 +3383,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         _tool == InkTool.pen ||
         _tool == InkTool.pencil ||
         _tool == InkTool.shape;
+    final compact = _editing != null; // نص على الصفحة يُكتب الآن
     final shapeNames = {
       InkShape.line: s.shapeLine,
       InkShape.arrow: s.shapeArrow,
@@ -2707,20 +3421,24 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    tool(InkTool.pen, AppIcons.penNib, s.penTool),
-                    tool(InkTool.pencil, AppIcons.pencil, s.pencilTool),
-                    tool(InkTool.eraser, AppIcons.eraser, s.eraserTool),
-                    tool(InkTool.shape, AppIcons.shapes, s.shapeTool),
-                    tool(InkTool.note, AppIcons.stickyNote, s.noteTool),
-                    tool(InkTool.text, AppIcons.textTool, s.textTool),
-                    tool(InkTool.audio, AppIcons.mic, s.audioTool),
-                    tool(InkTool.image, AppIcons.image, s.imageTool),
-                  ],
-                ),
+                // أثناء كتابة نص على الصفحة: الألوان فقط (ما يلزم الكتابة)، فلا
+                // تزدحم الشاشة بين اللوحة وشريط التنسيق ولوحة المفاتيح. صف
+                // الأدوات يعود بعد الإنهاء
+                if (!compact)
+                  Row(
+                    children: [
+                      tool(InkTool.pen, AppIcons.penNib, s.penTool),
+                      tool(InkTool.pencil, AppIcons.pencil, s.pencilTool),
+                      tool(InkTool.eraser, AppIcons.eraser, s.eraserTool),
+                      tool(InkTool.shape, AppIcons.shapes, s.shapeTool),
+                      tool(InkTool.note, AppIcons.stickyNote, s.noteTool),
+                      tool(InkTool.text, AppIcons.textTool, s.textTool),
+                      tool(InkTool.audio, AppIcons.mic, s.audioTool),
+                      tool(InkTool.image, AppIcons.image, s.imageTool),
+                    ],
+                  ),
                 // الممحاة بلا خيارات
-                if (_tool != InkTool.eraser && !_attachTool)
+                if (!compact && _tool != InkTool.eraser && !_attachTool)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Divider(height: 1, color: c.line),
@@ -2891,7 +3609,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     return false;
   }
 
-  Widget _menu() {
+  Widget _menu({double? tailX, bool tailUp = false}) {
     final s = AppStrings.of(context);
     final mark = _active.isEmpty ? null : _active.first;
     return SelectionMenu(
@@ -2920,24 +3638,48 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       dark: _darkPaper,
       surface: _chrome.surface,
       accent: _chrome.strong,
+      tailX: tailX,
+      tailUp: tailUp,
     );
   }
 
-  // القائمة فوق المنطقة [top, bottom] إن وُجد مكان، وإلا تحتها
-  Widget _placeMenu(double top, double bottom) {
+  // القائمة فوق المنطقة [top, bottom] إن وُجد مكان، وإلا تحتها، وذيلها يشير
+  // إلى أول سطر (فوق) أو آخر سطر (تحت). topX/bottomX: منتصف السطرين أفقيًا.
+  Widget _placeMenu(double top, double bottom, double topX, double bottomX) {
     return LayoutBuilder(
       builder: (context, box) {
-        final width = math.min(360.0, box.maxWidth - 24);
-        const h = SelectionMenu.height;
-        final above = top - h - 14;
-        final y = above >= 8 ? above : bottom + 28;
+        final width = math.min(380.0, box.maxWidth - 24);
+        // الارتفاع الفعلي من آخر رسم (يزيد مع نص الملاحظة وزر المسح)
+        final h = _menuHeight;
+        const gap = SelectionMenu.tail + 8;
+        // العارض يمتد تحت أزرار أندرويد (شريط الحالة مخفي فالمساحة الآمنة صفر)
+        final bottomLimit =
+            box.maxHeight - MediaQuery.viewPaddingOf(context).bottom - 8;
+        final above = top - h - gap;
+        final below = bottom + gap + 18; // 18: مقبضا التحديد
+        final isAbove = above >= 8;
+        final raw = isAbove ? above : below;
+        final y = raw.clamp(8.0, math.max(8.0, bottomLimit - h)).toDouble();
+        final left = (box.maxWidth - width) / 2;
+        // الذيل فقط إن بقيت القائمة ملاصقة للنص (لم تُزح لحافة الشاشة)
+        final anchored = (y - raw).abs() < 1;
+        final tailX = ((isAbove ? topX : bottomX) - left)
+            .clamp(36.0, width - 36.0)
+            .toDouble();
         return Stack(
           children: [
             Positioned(
-              left: (box.maxWidth - width) / 2,
-              top: y.clamp(8.0, math.max(8.0, box.maxHeight - h - 8)),
+              left: left,
+              top: y,
               width: width,
-              child: _menu(),
+              child: _MeasureHeight(
+                onHeight: (v) {
+                  if ((v - _menuHeight).abs() > 0.5) {
+                    setState(() => _menuHeight = v);
+                  }
+                },
+                child: _menu(tailX: anchored ? tailX : null, tailUp: !isAbove),
+              ),
             ),
           ],
         );
@@ -3003,7 +3745,9 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           );
         }
 
-        return _placeMenu(toLocal(first).top, toLocal(last).bottom);
+        final a = toLocal(first);
+        final b = toLocal(last);
+        return _placeMenu(a.top, b.bottom, a.center.dx, b.center.dx);
       },
     );
   }
@@ -3032,8 +3776,30 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     final c = _chrome;
-    final paper = _paper;
+    // خلفية القارئ والشريط العلوي (ليلًا من الثيم، أغمق من الصفحة؛ نهارًا = الورق)
+    final paper = c.reader;
     final ink = c.ink;
+    final icon = c.icon;
+    // ألوان الورق: تُقرأ عند رسم صور الصفحات (_paperFilter)
+    pdfrxPageColorFilter = _paperFilter();
+
+    // تدوير الجهاز: الملاءمة تُعاد بعد أن يرتب العارض الصفحات للمقاس الجديد
+    final screen = MediaQuery.sizeOf(context);
+    if (_viewSize != null && screen != _viewSize) _refitAfterLayout();
+    _viewSize = screen;
+
+    // تغيّر ارتفاع لوحة المفاتيح (فُتحت أو اكتمل فتحها): بعد أن يتقلص العارض
+    // نتأكد أن النص الذي يُكتب ظاهر فوقها
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    if (inset != _lastInset) {
+      final growing = inset > _lastInset;
+      _lastInset = inset;
+      if (_editing != null && growing) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _keepEditingVisible(),
+        );
+      }
+    }
 
     // زر الرجوع في الهاتف: يلغي التحديد أولًا، ثم يخرج من الكتاب
     final busy =
@@ -3081,7 +3847,12 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 accent: c.strong,
                 tooltip: s.goToPage,
                 onGo: (p) {
-                  if (_controller.isReady) _controller.goToPage(pageNumber: p);
+                  if (_textMode.value) {
+                    _page.value = p;
+                    _textReaderKey.currentState?.jumpToPage(p);
+                  } else if (_controller.isReady) {
+                    _controller.goToPage(pageNumber: p);
+                  }
                 },
               ),
             ListenableBuilder(
@@ -3096,47 +3867,59 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     saved ? AppIcons.bookmarkSaved : AppIcons.bookmark,
                     size: 23,
                     strokeWidth: 1.9,
-                    color: saved ? c.strong : ink,
+                    color: saved ? c.strong : icon,
                   ),
                 );
               },
             ),
-            // الرسم الحر
+            // التبديل بين الصفحات الأصلية والقراءة النصية
             IconButton(
-              tooltip: s.drawMode,
-              onPressed: _toggleDrawMode,
+              tooltip: _textMode.value ? s.originalPages : s.textReading,
+              onPressed: () => _textMode.value = !_textMode.value,
               icon: AppIcon(
-                AppIcons.draw,
+                _textMode.value ? AppIcons.pdfPages : AppIcons.textReading,
                 size: 23,
-                color: _drawMode ? c.strong : ink,
+                color: icon,
               ),
             ),
+            if (!_textMode.value)
+              // الرسم الحر
+              IconButton(
+                tooltip: s.drawMode,
+                onPressed: _toggleDrawMode,
+                icon: AppIcon(
+                  AppIcons.draw,
+                  size: 23,
+                  color: _drawMode ? c.strong : icon,
+                ),
+              ),
             IconButton(
               tooltip: s.readerSettings,
               onPressed: _openSettings,
-              icon: const Icon(Icons.tune),
+              icon: Icon(Icons.tune, color: icon),
             ),
             PopupMenuButton<int>(
               tooltip: s.more,
               color: c.surface,
-              onSelected: (_) =>
-                  Navigator.of(context).pop(OpenClassicViewer(_page.value)),
+              enabled: !_exporting,
+              onSelected: (v) => v == 0 ? _saveCopy() : _shareCopy(),
               itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 0,
-                  child: Row(
-                    children: [
-                      AppIcon(AppIcons.pen, size: 20, color: c.ink),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Text(
-                          s.classicViewer,
-                          style: TextStyle(color: c.ink),
+                for (final (v, icon, label) in [
+                  (0, AppIcons.saveFile, s.saveCopy),
+                  (1, AppIcons.shareFile, s.shareCopy),
+                ])
+                  PopupMenuItem(
+                    value: v,
+                    child: Row(
+                      children: [
+                        AppIcon(icon, size: 20, color: c.ink),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(label, style: TextStyle(color: c.ink)),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ],
@@ -3145,86 +3928,140 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           key: _stackKey,
           children: [
             // تحديد pdfrx بلون الثيم بدل الأزرق
-            Theme(
-              data: Theme.of(context).copyWith(
-                textSelectionTheme: TextSelectionThemeData(
-                  selectionColor: c.selection,
-                  selectionHandleColor: c.strong,
+            // مخفي بنفس مقاسه (Offstage لا يأخذ مساحة فينكمش العارض كله إلى صفر)
+            Visibility(
+              visible: !_textMode.value,
+              maintainState: true,
+              maintainAnimation: true,
+              maintainSize: true,
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  textSelectionTheme: TextSelectionThemeData(
+                    selectionColor: c.selection,
+                    selectionHandleColor: c.strong,
+                  ),
                 ),
-              ),
-              child: PdfViewer.file(
-                widget.filePath,
-                controller: _controller,
-                initialPageNumber: widget.initialPage ?? 1,
-                params: PdfViewerParams(
-                  backgroundColor: paper,
-                  margin: _margin,
-                  pageDropShadow: BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: _darkPaper ? 0.4 : 0.10,
+                child: PdfViewer.file(
+                  widget.filePath,
+                  controller: _controller,
+                  initialPageNumber: widget.initialPage ?? 1,
+                  params: PdfViewerParams(
+                    backgroundColor: paper,
+                    margin: _margin,
+                    // الأفقي: صفحات جنبًا إلى جنب، تفتح على صفحة كاملة، وتستقر
+                    // صفحة واحدة بعد كل سحبة
+                    layoutPages: _horizontal
+                        ? (_rtlBook ? _layoutRtl : _layoutLtr)
+                        : null,
+                    sizeDelegateProvider: _horizontal
+                        ? (_horizontalZoomOut ?? _horizontalSizing)
+                        : _verticalSizing,
+                    calculateCurrentPageNumber: _horizontal
+                        ? _pageAtCenter
+                        : null,
+                    onInteractionStart: _onInteractionStart,
+                    onInteractionEnd: _onInteractionEnd,
+                    // بلا ظل والصفحات مصغرة (نظرة عامة): ظل مموّه لكل صفحة من
+                    // صفحات كثيرة صغيرة عمل بلا فائدة تُرى
+                    pageDropShadow: _overview
+                        ? null
+                        : BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: _darkPaper ? 0.4 : 0.10,
+                            ),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                    pagePaintCallbacks: [_paintMarks, _paintInk],
+                    onGeneralTap: _onTap,
+                    // لا قائمة من pdfrx: قائمتنا في طبقة العارض (_overlayMenu)
+                    buildContextMenu: (_, _) => null,
+                    textSelectionParams: PdfTextSelectionParams(
+                      onTextSelectionChange: _onSelectionChange,
+                      // القائمة تختفي أثناء سحب المقبضين حتى لا تغطيهما
+                      onSelectionHandlePanStart: (_) =>
+                          setState(() => _draggingHandle = true),
+                      onSelectionHandlePanEnd: (_) =>
+                          setState(() => _draggingHandle = false),
                     ),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                  pagePaintCallbacks: [_paintPaper, _paintMarks, _paintInk],
-                  onGeneralTap: _onTap,
-                  // لا قائمة من pdfrx: قائمتنا في طبقة العارض (_overlayMenu)
-                  buildContextMenu: (_, _) => null,
-                  textSelectionParams: PdfTextSelectionParams(
-                    onTextSelectionChange: _onSelectionChange,
-                    // القائمة تختفي أثناء سحب المقبضين حتى لا تغطيهما
-                    onSelectionHandlePanStart: (_) =>
-                        setState(() => _draggingHandle = true),
-                    onSelectionHandlePanEnd: (_) =>
-                        setState(() => _draggingHandle = false),
-                  ),
-                  onViewerReady: (document, controller) {
-                    setState(() => _pageCount = document.pages.length);
-                    _onPageChanged(controller.pageNumber ?? _page.value);
-                    _revealNote();
-                  },
-                  onPageChanged: _onPageChanged,
-                  loadingBannerBuilder: (_, _, _) =>
-                      Center(child: CircularProgressIndicator(color: c.strong)),
-                  errorBannerBuilder:
-                      (context, error, stackTrace, documentRef) => Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            s.couldNotOpen,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: ink, fontSize: 16),
+                    onViewerReady: (document, controller) {
+                      setState(() => _pageCount = document.pages.length);
+                      _updateZoomLimits();
+                      _onPageChanged(controller.pageNumber ?? _page.value);
+                      _revealNote();
+                    },
+                    onPageChanged: _onPageChanged,
+                    loadingBannerBuilder: (_, _, _) => Center(
+                      child: CircularProgressIndicator(color: c.strong),
+                    ),
+                    errorBannerBuilder:
+                        (context, error, stackTrace, documentRef) => Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              s.couldNotOpen,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: ink, fontSize: 16),
+                            ),
                           ),
                         ),
-                      ),
-                  // شريط سحب سريع على الطرف للتنقل بين الصفحات
-                  viewerOverlayBuilder: (context, size, _) => [
-                    PdfViewerScrollThumb(
-                      controller: _controller,
-                      orientation: ScrollbarOrientation.right,
-                      thumbSize: const Size(44, 26),
-                      thumbBuilder:
-                          (context, thumbSize, pageNumber, controller) =>
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: c.fab,
-                                  borderRadius: BorderRadius.circular(13),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '${pageNumber ?? ''}',
-                                  style: TextStyle(
-                                    color: c.onFab,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                    // شريط سحب سريع على الطرف للتنقل بين الصفحات
+                    viewerOverlayBuilder: (context, size, _) => [
+                      PdfViewerScrollThumb(
+                        controller: _controller,
+                        orientation: _horizontal
+                            ? ScrollbarOrientation.bottom
+                            : ScrollbarOrientation.right,
+                        // في الأسفل: فوق أزرار أندرويد (العارض يمتد تحتها)
+                        margin: _horizontal
+                            ? MediaQuery.viewPaddingOf(context).bottom + 4
+                            : 2,
+                        thumbSize: const Size(44, 26),
+                        thumbBuilder:
+                            (context, thumbSize, pageNumber, controller) =>
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: c.fab,
+                                    borderRadius: BorderRadius.circular(13),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '${pageNumber ?? ''}',
+                                    style: TextStyle(
+                                      color: c.onFab,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
-                              ),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+            // القراءة النصية فوق العارض (العارض باقٍ مخفيًا فلا يُعاد فتح الكتاب)
+            if (_textMode.value)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: paper,
+                  child: PdfTextReader(
+                    key: _textReaderKey,
+                    lectureId: widget.fileId,
+                    filePath: widget.filePath,
+                    pageCount: math.max(_pageCount, 1),
+                    initialPage: _page.value,
+                    fontSize: _settings.textFontSize,
+                    sidePadding: 14 + _margin,
+                    chrome: c,
+                    onPageChanged: _onPageChanged,
+                    onShowOriginal: (page) {
+                      _page.value = page;
+                      _textMode.value = false;
+                    },
+                  ),
+                ),
+              ),
             // السطوع: طبقة سوداء شفافة لا تلتقط اللمس
             if (_settings.brightness < 1)
               Positioned.fill(
@@ -3236,10 +4073,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   ),
                 ),
               ),
+            // مقبضا تحديد الصفحات الممسوحة، تحت القائمة (كانا يُرسمان فوقها)
+            Positioned.fill(child: _ocrHandles()),
             // قائمة التحديد: للنص المحدد أو للتحديد المحفوظ المختار
             Positioned.fill(child: _overlayMenu()),
-            // مقبضا تحديد الصفحات الممسوحة
-            Positioned.fill(child: _ocrHandles()),
             // طبقة الرسم والكتابة: تلتقط اللمس كله في وضع القلم
             if (_drawMode)
               Positioned.fill(
@@ -3280,8 +4117,9 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 right: 0,
                 bottom: 0,
                 child: NoteToolbar(
-                  key: ValueKey(_editing!.id),
+                  key: _toolbarKey,
                   note: _editing!,
+                  text: _noteText,
                   chrome: _chrome,
                   onChanged: () {
                     setState(() {});
@@ -3293,7 +4131,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 ),
               ),
             // شريط تشغيل المقطع الصوتي أسفل العارض (مقاطع المذكرة تعمل داخلها)
-            if (_playing case final clip? when clip.noteId == null)
+            if (_playing case final clip? when !_inExistingNote(clip))
               if (_attachments.pathOf(clip) case final clipPath?)
                 Positioned(
                   left: 12,
@@ -3326,11 +4164,39 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   }
 }
 
-// نافذة الملاحظة: تملك الـ controller وتتخلص منه في dispose
+// يبلّغ ارتفاع ابنه بعد كل رسم (قائمة التحديد يتغير طولها)
+class _MeasureHeight extends StatelessWidget {
+  const _MeasureHeight({required this.onHeight, required this.child});
+
+  final ValueChanged<double> onHeight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      final size = context.size;
+      if (size != null) onHeight(size.height);
+    });
+    return child;
+  }
+}
+
+// نافذة الملاحظة: تملك الـ controller وتتخلص منه في dispose.
+// شكلها من مرجع المستخدم (23 أكتوبر): أيقونة | العنوان، خانة كتابة بإطار بلون
+// الثيم، وزرا "إلغاء" (إطار) و"حفظ الملاحظة" (ممتلئ). الألوان من واجهة القراءة.
 class _InputDialog extends StatefulWidget {
-  const _InputDialog({required this.title, this.confirm, this.initial = ''});
+  const _InputDialog({
+    required this.title,
+    required this.chrome,
+    this.hint,
+    this.confirm,
+    this.initial = '',
+  });
 
   final String title;
+  final ReaderChrome chrome;
+  final String? hint;
   final String? confirm;
   final String initial;
 
@@ -3339,7 +4205,15 @@ class _InputDialog extends StatefulWidget {
 }
 
 class _InputDialogState extends State<_InputDialog> {
-  late final _input = TextEditingController(text: widget.initial);
+  late final _input = TextEditingController(text: widget.initial)
+    ..addListener(_onText);
+  // الاتجاه من أول حرف، والفارغ بلغة التطبيق
+  TextDirection? _direction;
+
+  void _onText() {
+    final d = strongDirection(_input.text);
+    if (d != _direction) setState(() => _direction = d);
+  }
 
   @override
   void dispose() {
@@ -3352,24 +4226,114 @@ class _InputDialogState extends State<_InputDialog> {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
+    final c = widget.chrome;
+    const radius = 18.0;
 
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        controller: _input,
-        autofocus: true,
-        keyboardType: TextInputType.multiline,
-        minLines: 2,
-        maxLines: 6,
-        textDirection: textDirectionFor(_input.text),
+    OutlineInputBorder border(double width, double alpha) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(radius),
+      borderSide: BorderSide(
+        color: c.strong.withValues(alpha: alpha),
+        width: width,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(s.cancel),
+    );
+
+    return Dialog(
+      backgroundColor: c.surface,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+        side: BorderSide(color: c.line),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                AppIcon(AppIcons.stickyNote, size: 24, color: c.strong),
+                Container(
+                  width: 1.2,
+                  height: 22,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  color: c.line,
+                ),
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      color: c.ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _input,
+              autofocus: true,
+              keyboardType: TextInputType.multiline,
+              minLines: 3,
+              maxLines: 7,
+              cursorColor: c.strong,
+              textDirection: _direction ?? Directionality.of(context),
+              style: TextStyle(fontSize: 15, color: c.ink, height: 1.45),
+              decoration: InputDecoration(
+                hintText: widget.hint,
+                hintStyle: TextStyle(color: c.muted, fontSize: 14.5),
+                filled: true,
+                fillColor: c.strong.withValues(alpha: 0.05),
+                contentPadding: const EdgeInsets.all(14),
+                enabledBorder: border(1.2, 0.45),
+                focusedBorder: border(1.8, 1),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: c.ink,
+                      minimumSize: const Size.fromHeight(50),
+                      side: BorderSide(color: c.ink.withValues(alpha: 0.22)),
+                      shape: const StadiumBorder(),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: Text(s.cancel),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: c.strong,
+                      // الليلي: لون الثيم فاتح فالنص داكن
+                      foregroundColor: c.onStrong,
+                      minimumSize: const Size.fromHeight(50),
+                      shape: const StadiumBorder(),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    child: Text(widget.confirm ?? s.go),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        TextButton(onPressed: _submit, child: Text(widget.confirm ?? s.go)),
-      ],
+      ),
     );
   }
 }

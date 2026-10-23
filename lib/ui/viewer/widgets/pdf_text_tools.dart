@@ -5,6 +5,7 @@ import '../../core/ui/core_ui.dart';
 import 'ink_color_wheel.dart';
 import 'pdf_notes.dart';
 import 'reader_chrome.dart';
+import 'styled_text.dart';
 
 // خطوط النص (نفس قائمة العارض القديم)
 typedef NoteFont = ({String id, String label, String? google});
@@ -78,6 +79,7 @@ class NoteToolbar extends StatefulWidget {
   const NoteToolbar({
     super.key,
     required this.note,
+    required this.text,
     required this.chrome,
     required this.onChanged,
     required this.onDelete,
@@ -85,6 +87,9 @@ class NoteToolbar extends StatefulWidget {
   });
 
   final PageNote note;
+  // نص الملاحظة الذي يُكتب: العريض والمائل والخط تحته والحجم على المحدد أو
+  // على ما سيُكتب بعده (لا على الصندوق كله)
+  final StyledTextController text;
   final ReaderChrome chrome;
   final VoidCallback onChanged; // بعد كل تغيير (إعادة رسم + حفظ)
   final VoidCallback onDelete;
@@ -390,25 +395,43 @@ class _NoteToolbarState extends State<NoteToolbar> {
           ],
         );
       case _Tab.style:
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            toggle(
-              Icons.format_bold,
-              n.bold,
-              () => _set(() => n.bold = !n.bold),
-            ),
-            toggle(
-              Icons.format_italic,
-              n.italic,
-              () => _set(() => n.italic = !n.italic),
-            ),
-            toggle(
-              Icons.format_underline,
-              n.underline,
-              () => _set(() => n.underline = !n.underline),
-            ),
-          ],
+        // الحالة من المحدد أو من مكان المؤشر، وتتبدل مع تحريكه
+        return ListenableBuilder(
+          listenable: widget.text,
+          builder: (context, _) {
+            final active = widget.text.activeStyle;
+            void apply(RunStyle Function(RunStyle) change) {
+              widget.text.applyStyle(change);
+              widget.onChanged();
+            }
+
+            RunStyle Function(RunStyle) size(double step) =>
+                (r) => r.copyWith(scale: (r.scale * step).clamp(0.6, 2.4));
+
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // قيمة مطلقة من الحالة الحالية حتى يتطابق كل المحدد
+                toggle(
+                  Icons.format_bold,
+                  active.bold,
+                  () => apply((r) => r.copyWith(bold: !active.bold)),
+                ),
+                toggle(
+                  Icons.format_italic,
+                  active.italic,
+                  () => apply((r) => r.copyWith(italic: !active.italic)),
+                ),
+                toggle(
+                  Icons.format_underline,
+                  active.underline,
+                  () => apply((r) => r.copyWith(underline: !active.underline)),
+                ),
+                toggle(Icons.text_decrease, false, () => apply(size(1 / 1.15))),
+                toggle(Icons.text_increase, false, () => apply(size(1.15))),
+              ],
+            );
+          },
         );
       case _Tab.align:
         return Row(

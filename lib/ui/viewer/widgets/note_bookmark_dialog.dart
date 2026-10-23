@@ -141,7 +141,10 @@ class _NoteBookmarkDialogState extends State<_NoteBookmarkDialog> {
           child: Text(s.cancel, style: TextStyle(color: c.muted)),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: c.strong),
+          style: FilledButton.styleFrom(
+            backgroundColor: c.strong,
+            foregroundColor: c.onStrong,
+          ),
           onPressed: _save,
           child: Text(s.save),
         ),

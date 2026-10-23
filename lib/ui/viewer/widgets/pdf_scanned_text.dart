@@ -34,12 +34,20 @@ class ScannedPageText {
   // الكلمات جاهزة بلا انتظار؟ (وإلا تظهر رسالة "جارٍ قراءة النص")
   bool isReady(int pageIndex) => _ready.contains(pageIndex);
 
-  Future<List<PageWord>> words(int pageIndex) =>
-      _words[pageIndex] ??= _load(pageIndex).catchError((Object e) {
-        debugPrint('[OCR] page $pageIndex failed: $e');
-        _words.remove(pageIndex); // محاولة أخرى في المرة القادمة
-        return const <PageWord>[];
-      });
+  // urgent: القارئ ينتظرها الآن (ضغطة مطولة)، فتتقدم على القراءة المسبقة
+  Future<List<PageWord>> words(int pageIndex, {bool urgent = false}) {
+    if (urgent) {
+      _urgent.add(pageIndex);
+      OcrService.instance.promote(lectureId, pageIndex);
+    }
+    return _words[pageIndex] ??= _load(pageIndex).catchError((Object e) {
+      if (e is! OcrSkipped) debugPrint('[OCR] page $pageIndex failed: $e');
+      _words.remove(pageIndex); // محاولة أخرى في المرة القادمة
+      return const <PageWord>[];
+    });
+  }
+
+  final Set<int> _urgent = {};
 
   // قراءة مسبقة في الخلفية (بلا انتظار)
   void prefetch(PdfPage page) {
@@ -50,12 +58,17 @@ class ScannedPageText {
     });
   }
 
+  // القارئ انتقل: القراءة المسبقة لغير هذه الصفحات تُلغى إن لم تبدأ
+  void keepOnly(Set<int> pageIndexes) =>
+      OcrService.instance.keepOnly(lectureId, pageIndexes);
+
   Future<List<PageWord>> _load(int pageIndex) async {
     final bytes = _bytes ??= await File(filePath).readAsBytes();
     final raw = await OcrService.instance.pageWords(
       lectureId: lectureId,
       pdfBytes: bytes,
       page: pageIndex,
+      urgent: _urgent.contains(pageIndex),
     );
     final words = orderWords([
       for (final w in raw) (text: w.text, rect: w.rect, line: w.line),

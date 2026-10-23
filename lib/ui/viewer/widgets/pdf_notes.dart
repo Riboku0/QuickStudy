@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/ui/core_ui.dart';
 import 'pdf_text_tools.dart';
+import 'styled_text.dart';
 
 // الملاحظات النصية على الصفحات (العارض الجديد).
 // نفس ملف العارض القديم: quickstudy_notes/{id}_notes.json، فالملاحظات القديمة
@@ -32,6 +33,7 @@ class PageNote {
     this.align = 0,
     this.rot = 0,
     this.opacity = 1,
+    this.runs,
     Map<String, dynamic>? raw,
   }) : _raw = raw ?? {};
 
@@ -52,6 +54,9 @@ class PageNote {
   int align; // 0 تلقائي، 1 يسار، 2 وسط، 3 يمين
   double rot; // بالراديان
   double opacity;
+  // تنسيق على مقاطع (لون، عريض، مائل، تحته خط، حجم) فوق نمط الصندوق؛
+  // null = ملاحظة قديمة أو بلا تنسيق (النص كله بنمط الصندوق)
+  List<StyledRun>? runs;
   // حقول لا يعرفها هذا العارض تبقى كما هي عند الحفظ
   final Map<String, dynamic> _raw;
 
@@ -75,6 +80,7 @@ class PageNote {
     'align': align,
     'rot': rot,
     'opacity': opacity,
+    'runs': runs == null ? null : Runs.toJson(runs!),
   };
 
   factory PageNote.fromJson(Map<String, dynamic> json) => PageNote(
@@ -97,6 +103,7 @@ class PageNote {
     align: (json['align'] as int?) ?? 0,
     rot: (json['rot'] as num?)?.toDouble() ?? 0,
     opacity: (json['opacity'] as num?)?.toDouble() ?? 1,
+    runs: Runs.fromJson(json['runs']),
     raw: Map<String, dynamic>.of(json),
   );
 }
@@ -153,10 +160,9 @@ Rect noteBox(PageNote note, Size size) {
     height = note.h! * size.height;
   } else {
     final tp = TextPainter(
-      text: TextSpan(
-        text: note.text.isEmpty ? ' ' : note.text,
-        style: noteStyle(note, fontSize),
-      ),
+      text: note.text.isEmpty
+          ? TextSpan(text: ' ', style: noteStyle(note, fontSize))
+          : noteSpan(note, noteStyle(note, fontSize)),
       textDirection: noteDirection(note.text),
       textAlign: noteAlign(note),
       textScaler: TextScaler.noScaling,
@@ -199,9 +205,10 @@ void paintNotes(
       );
     }
     final tp = TextPainter(
-      text: TextSpan(
-        text: note.text,
-        style: _onPaper(noteStyle(note, fontSize), note, darkPaper),
+      text: noteSpan(
+        note,
+        _onPaper(noteStyle(note, fontSize), note, darkPaper),
+        darkPaper: darkPaper,
       ),
       textDirection: noteDirection(note.text),
       textAlign: noteAlign(note),
@@ -280,6 +287,23 @@ class PdfNotes extends ChangeNotifier {
 }
 
 // على الورق الداكن: النص الداكن بلا خلفية يظهر فاتحًا (كالعارض القديم)
+// نص الملاحظة بمقاطعه فوق نمط الصندوق (القياس والرسم معًا فيتطابقان). على
+// الورق الداكن بلا خلفية تُعرض الألوان الداكنة في المقاطع فاتحة كالنص الأساسي
+TextSpan noteSpan(PageNote note, TextStyle base, {bool darkPaper = false}) {
+  final runs = note.runs;
+  if (runs == null) return TextSpan(text: note.text, style: base);
+  final readable = !darkPaper || note.bg != null
+      ? runs
+      : [
+          for (final r in runs)
+            r.style.color != null &&
+                    Color(r.style.color!).computeLuminance() <= 0.3
+                ? StyledRun(r.length, r.style.copyWith(color: 0xFFE6E0D4))
+                : r,
+        ];
+  return Runs.span(note.text, readable, base);
+}
+
 TextStyle _onPaper(TextStyle style, PageNote note, bool darkPaper) {
   if (!darkPaper || note.bg != null) return style;
   if (Color(note.color).computeLuminance() > 0.3) return style;

@@ -53,9 +53,15 @@ class ReadingProgressRepository extends ChangeNotifier {
         openedAt: DateTime.now(),
       ),
     };
-    notifyListeners();
+    // التمرير يغيّر الصفحة مرات كثيرة في الثانية (خصوصًا والصفحات مصغرة)،
+    // وكل إشعار كان يعيد بناء المكتبة والرئيسية المخفيتين تحت العارض. القيمة
+    // تتحدث فورًا، والإشعار مرة بعد أن يتوقف التغيير.
+    _notifyTimer?.cancel();
+    _notifyTimer = Timer(const Duration(milliseconds: 400), notifyListeners);
     _scheduleSave();
   }
+
+  Timer? _notifyTimer;
 
   void remove(int lectureId) {
     if (!_items.containsKey(lectureId)) return;
@@ -82,6 +88,7 @@ class ReadingProgressRepository extends ChangeNotifier {
 
   @override
   void dispose() {
+    _notifyTimer?.cancel();
     if (_saveTimer?.isActive ?? false) {
       _saveTimer!.cancel();
       _save();

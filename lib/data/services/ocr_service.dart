@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' show Rect;
 
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
+import 'package:flutter/services.dart' show MethodChannel, rootBundle;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart' show Printing;
@@ -42,6 +43,36 @@ class OcrWord {
   }
 }
 
+// قراءة مسبقة أُلغيت لأن القارئ ابتعد عن صفحتها (ليست خطأ)
+class OcrSkipped implements Exception {
+  const OcrSkipped();
+}
+
+class _OcrJob {
+  _OcrJob(this.lectureId, this.page, this.pdfBytes, this.urgent);
+
+  final int lectureId;
+  final int page;
+  final Uint8List pdfBytes;
+  bool urgent;
+  final Completer<List<OcrWord>> done = Completer();
+}
+
+// RGBA ← صورة PGM رمادية (P5) يقرؤها Tesseract مباشرة. دالة عليا حتى لا
+// تحمل Isolate.run شيئًا غير البكسلات.
+Uint8List _grayPgm(Uint8List rgba, int width, int height) {
+  final header = ascii.encode('P5\n$width $height\n255\n');
+  final out = Uint8List(header.length + width * height)..setAll(0, header);
+  var o = header.length;
+  for (var i = 0; i + 3 < rgba.length && o < out.length; i += 4) {
+    out[o++] = (rgba[i] * 77 + rgba[i + 1] * 150 + rgba[i + 2] * 29) >> 8;
+  }
+  return out;
+}
+
+Future<Uint8List> _pgmInBackground(Uint8List rgba, int width, int height) =>
+    Isolate.run(() => _grayPgm(rgba, width, height));
+
 // التعرف على النص في الصفحات الممسوحة (عربي + إنجليزي) لتحديدها ونسخها.
 // النتيجة تُحفظ لكل صفحة في quickstudy_ocr/{lectureId}/{page}.json،
 // فلا تتكرر المعالجة عند فتح الكتاب مرة أخرى. الملف الأصلي لا يتغير.
@@ -53,21 +84,47 @@ class OcrService {
   // دقة كافية لقراءة الحروف العربية بدون صورة ضخمة
   static const double _dpi = 220;
 
-  // صفحة واحدة في كل مرة (OCR ثقيل على الهاتف)
-  Future<void> _queue = Future.value();
+  // صفحة واحدة في كل مرة (OCR ثقيل على الهاتف). الطلب العاجل (ضغطة مطولة)
+  // يتقدم على القراءة المسبقة، والمسبقة بترتيب وصولها، وما ابتعد عنه القارئ
+  // يُلغى قبل أن يبدأ (keepOnly) حتى لا تنتظر الصفحة الحالية صفحات قديمة.
+  final List<_OcrJob> _pending = [];
+  bool _working = false;
+
+  static const _channel = MethodChannel('quickstudy/ocr');
+  Future<String>? _dataPath;
+
+  // ملفات اللغة من assets/tessdata إلى مجلد التطبيق مرة واحدة (كما تفعل
+  // flutter_tesseract_ocr)، ويُرجع المجلد الأب الذي يطلبه Tesseract
+  Future<String> _prepareTessData() async {
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = Directory(p.join(docs.path, 'tessdata'));
+    await dir.create(recursive: true);
+    final config =
+        jsonDecode(await rootBundle.loadString('assets/tessdata_config.json'))
+            as Map<String, dynamic>;
+    for (final name in (config['files'] as List).cast<String>()) {
+      final file = File(p.join(dir.path, name));
+      if (await file.exists()) continue;
+      final data = await rootBundle.load('assets/tessdata/$name');
+      await file.writeAsBytes(
+        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+        flush: true,
+      );
+    }
+    return docs.path;
+  }
 
   Future<List<OcrWord>> pageWords({
     required int lectureId,
     required Uint8List pdfBytes,
     required int page,
+    bool urgent = false,
   }) async {
     final cache = await _cacheFile(lectureId, page);
     final cached = await _readCache(cache);
     if (cached != null) return cached;
 
-    final result = _queue.then((_) => _recognize(pdfBytes, page));
-    _queue = result.then((_) {}, onError: (_) {});
-    final words = await result;
+    final words = await _enqueue(lectureId, pdfBytes, page, urgent);
 
     try {
       await cache.parent.create(recursive: true);
@@ -81,12 +138,66 @@ class OcrService {
     return words;
   }
 
+  Future<List<OcrWord>> _enqueue(
+    int lectureId,
+    Uint8List pdfBytes,
+    int page,
+    bool urgent,
+  ) {
+    for (final job in _pending) {
+      if (job.lectureId == lectureId && job.page == page) {
+        job.urgent |= urgent;
+        return job.done.future;
+      }
+    }
+    final job = _OcrJob(lectureId, page, pdfBytes, urgent);
+    _pending.add(job);
+    _pump();
+    return job.done.future;
+  }
+
+  // صفحة لم تبدأ قراءتها بعد صارت عاجلة (ضغط عليها القارئ)
+  void promote(int lectureId, int page) {
+    for (final job in _pending) {
+      if (job.lectureId == lectureId && job.page == page) job.urgent = true;
+    }
+  }
+
+  // إلغاء القراءة المسبقة للصفحات التي ابتعد عنها القارئ (العاجلة تبقى)
+  void keepOnly(int lectureId, Set<int> pages) {
+    _pending.removeWhere((job) {
+      final drop =
+          job.lectureId == lectureId && !job.urgent && !pages.contains(job.page);
+      if (drop) job.done.completeError(const OcrSkipped());
+      return drop;
+    });
+  }
+
+  Future<void> _pump() async {
+    if (_working) return;
+    _working = true;
+    while (_pending.isNotEmpty) {
+      final job = _pending.firstWhere(
+        (j) => j.urgent,
+        orElse: () => _pending.first,
+      );
+      _pending.remove(job);
+      try {
+        job.done.complete(await _recognize(job.pdfBytes, job.page));
+      } catch (e, st) {
+        job.done.completeError(e, st);
+      }
+    }
+    _working = false;
+  }
+
   Future<List<OcrWord>> _recognize(Uint8List pdfBytes, int page) async {
     final temp = await getTemporaryDirectory();
+    // PGM رمادي بلا ضغط: كتابته فورية، وترميز PNG كان يأخذ نصف ثانية لكل صفحة
     final image = File(
       p.join(
         temp.path,
-        'quickstudy_ocr_${DateTime.now().microsecondsSinceEpoch}.png',
+        'quickstudy_ocr_${DateTime.now().microsecondsSinceEpoch}.pgm',
       ),
     );
 
@@ -100,16 +211,29 @@ class OcrService {
       )) {
         width = raster.width;
         height = raster.height;
-        await image.writeAsBytes(await raster.toPng(), flush: true);
+        await image.writeAsBytes(
+          await _pgmInBackground(raster.pixels, width, height),
+          flush: true,
+        );
         break;
       }
       if (width <= 0 || height <= 0) return const [];
 
-      final hocr = await FlutterTesseractOcr.extractHocr(
-        image.path,
-        language: 'ara+eng',
-        args: {'psm': '3', 'preserve_interword_spaces': '1'},
-      );
+      // عبر MainActivity (خيط بأولوية عادية)، لا extractHocr من الإضافة
+      final hocr =
+          await _channel.invokeMethod<String>('hocr', {
+            'dataPath': await (_dataPath ??= _prepareTessData()),
+            'language': 'ara+eng',
+            'imagePath': image.path,
+            'psm': 3,
+            'vars': {
+              'preserve_interword_spaces': '1',
+              // بلا محاولة ثانية بالألوان المعكوسة للأسطر الضعيفة: أسرع،
+              // والكتب نص داكن على ورق فاتح
+              'tessedit_do_invert': '0',
+            },
+          }) ??
+          '';
       return parseHocr(hocr, width.toDouble(), height.toDouble());
     } finally {
       try {

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'pdf_ink.dart';
+import 'styled_text.dart';
 
 // المذكرات: بطاقة على الصفحة بلون الثيم، يُكتب فيها أو يُرسم بأدوات لوحة القلم،
 // وتُطوى إلى أيقونة صغيرة على الصفحة. ملف لكل كتاب: quickstudy_notes/{id}_cards.json.
@@ -20,17 +21,21 @@ class NoteCard {
     this.h = 0.45,
     this.text = '',
     this.color,
+    this.runs,
     List<InkStroke>? strokes,
   }) : strokes = strokes ?? [];
 
   final String id;
-  final int page; // يبدأ من 0
+  int page; // يبدأ من 0 (تتغير بسحب أيقونتها إلى صفحة أخرى)
   double x; // مكان الأيقونة والزاوية العلوية للبطاقة (نسبة من عرض الصفحة)
   double y; // نسبة من ارتفاع الصفحة
   double w; // عرض البطاقة نسبة من عرض الصفحة
   double h; // ارتفاع البطاقة نسبة من عرض الصفحة (حتى تبقى مربعة تقريبًا)
   String text;
-  int? color; // لون نص المذكرة (null = لون الحبر الافتراضي)
+  // لون النص الأساسي (المذكرات القديمة: لون واحد للنص كله؛ الجديدة بمقاطع)
+  int? color;
+  // تنسيق النص على مقاطع (لون، عريض، مائل، حجم)؛ null = مذكرة قديمة بلا تنسيق
+  List<StyledRun>? runs;
   final List<InkStroke> strokes; // نقاطها وسماكتها نسبة من البطاقة
 
   Map<String, dynamic> toJson() => {
@@ -42,6 +47,7 @@ class NoteCard {
     'h': h,
     'text': text,
     'color': ?color,
+    if (runs != null) 'runs': Runs.toJson(runs!),
     'strokes': [for (final s in strokes) s.toJson()],
   };
 
@@ -54,6 +60,7 @@ class NoteCard {
     h: (json['h'] as num?)?.toDouble() ?? 0.45,
     text: (json['text'] as String?) ?? '',
     color: (json['color'] as num?)?.toInt(),
+    runs: Runs.fromJson(json['runs']),
     strokes: [
       for (final s in (json['strokes'] as List? ?? const []))
         InkStroke.fromJson(s as Map<String, dynamic>),

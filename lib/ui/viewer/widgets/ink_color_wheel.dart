@@ -159,7 +159,10 @@ class _ColorWheelDialogState extends State<_ColorWheelDialog> {
           child: Text(s.cancel, style: TextStyle(color: c.muted)),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: c.strong),
+          style: FilledButton.styleFrom(
+            backgroundColor: c.strong,
+            foregroundColor: c.onStrong,
+          ),
           onPressed: () => Navigator.of(context).pop(color),
           child: Text(s.done),
         ),

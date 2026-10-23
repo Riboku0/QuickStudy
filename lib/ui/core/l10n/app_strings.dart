@@ -75,9 +75,23 @@ abstract class AppStrings {
   String get marginStandard;
   String get marginWide;
   String get backgroundColor;
-  String get colorsDayOnly;
+  String get readerSettingsHint;
+  String get marginsHint;
+  String get backgroundHint;
+  String get horizontalReadingHint;
+  String get nightModeHint;
+  List<String> get nightBackgrounds; // بترتيب NightBackground
+  String get fontSize;
+  String get fontSizeHint;
+  String get textReading;
+  String get textReadingHint;
+  String get resetFontSize;
+  String get originalPages;
+  String get readingPageText;
+  String get noPageText;
+  String get ocrPageNote;
+  String get retry;
   List<String> get readerBackgrounds; // بترتيب ReaderBackground
-  String get verticalReading;
   String get nightMode;
   String get resetSettings;
 
@@ -87,6 +101,7 @@ abstract class AppStrings {
   String get copyText;
   String get markNote;
   String get markNoteTitle;
+  String get markNoteHint;
   String get saveNote;
   String get removeMark;
   String get copied;
@@ -336,11 +351,13 @@ abstract class AppStrings {
   String get exportFailed;
   String get notesNotSaved;
   String get saveCopy;
+  String get horizontalReading;
+  String get shareCopy;
+  String get preparingCopy;
   String get savedSuccessfully;
   String goToPageRange(int count);
   String get go;
   String get goToPage;
-  String get classicViewer;
   String get drawMode;
   String get penTool;
   String get markerTool;
@@ -383,6 +400,11 @@ abstract class AppStrings {
   String get attachFailed;
   String get replaceImage;
   String get moveToPage;
+  String get formatBold;
+  String get formatItalic;
+  String get formatUnderline;
+  String get smallerText;
+  String get largerText;
   String get audioClip;
   String get closePlayer;
   String get play;
@@ -501,10 +523,25 @@ class _En extends AppStrings {
   @override String get marginStandard => 'Standard';
   @override String get marginWide => 'Wide';
   @override String get backgroundColor => 'Background color';
-  @override String get colorsDayOnly => 'Night mode uses its own calm colors. Colors apply in day mode.';
+  @override String get readerSettingsHint => 'Customize your reading experience';
+  @override String get marginsHint => 'Space around the page';
+  @override String get backgroundHint => 'Choose a background color that suits you';
+  @override String get horizontalReadingHint => 'Turn the pages like a book';
+  @override String get nightModeHint => 'Calm colors that are easy on the eyes';
+  @override String get fontSize => 'Font size';
+  @override String get fontSizeHint => 'Works in text reading. Pinch to zoom the original page.';
+  @override String get textReading => 'Text reading';
+  @override String get textReadingHint => 'The book text fitted to your screen width';
+  @override String get resetFontSize => 'Default size';
+  @override String get originalPages => 'Original pages';
+  @override String get readingPageText => 'Reading the page text';
+  @override String get noPageText => 'This page has no text that can be extracted, so font size is not available here. Zoom the original page instead.';
+  @override String get ocrPageNote => 'Scanned page: text read on your phone, it may contain mistakes';
+  @override String get retry => 'Try again';
+  @override List<String> get nightBackgrounds =>
+      const ['Obsidian', 'Ink', 'Olive Smoke', 'Mocha'];
   @override List<String> get readerBackgrounds =>
       const ['Classic', 'Green', 'Blue', 'Light', 'Warm', 'Dark'];
-  @override String get verticalReading => 'Vertical reading';
   @override String get nightMode => 'Night mode';
   @override String get resetSettings => 'Reset settings';
   @override List<String> get markStyles =>
@@ -513,8 +550,9 @@ class _En extends AppStrings {
       const ['Yellow', 'Green', 'Orange', 'Pink', 'Blue'];
   @override String get copyText => 'Copy';
   @override String get markNote => 'Note';
-  @override String get markNoteTitle => 'Note on selection';
-  @override String get saveNote => 'Save';
+  @override String get markNoteTitle => 'Add a note';
+  @override String get markNoteHint => 'Write a note about this selection...';
+  @override String get saveNote => 'Save note';
   @override String get removeMark => 'Remove';
   @override String get copied => 'Copied';
   @override String get noSelectableText => 'No text found on this page.';
@@ -528,7 +566,7 @@ class _En extends AppStrings {
   @override String get openAppFailed => 'Could not open the app.';
   @override String get addBookmark => 'Bookmark this page';
   @override String get removeBookmark => 'Remove bookmark';
-  @override String get bookmarkAdded => 'Bookmark saved';
+  @override String get bookmarkAdded => 'Added to bookmarks successfully';
   @override String get bookmarkRemoved => 'Bookmark removed';
   @override String get bookmarkAction => 'Bookmark';
   @override String get bookmarksTitle => 'Bookmarks';
@@ -777,11 +815,13 @@ class _En extends AppStrings {
   @override String get exportFailed => 'Export failed';
   @override String get notesNotSaved => 'Could not save notes';
   @override String get saveCopy => 'Save a copy';
+  @override String get horizontalReading => 'Horizontal reading (page by page)';
+  @override String get shareCopy => 'Share a copy';
+  @override String get preparingCopy => 'Preparing the copy...';
   @override String get savedSuccessfully => 'Saved successfully';
   @override String goToPageRange(int count) => 'Go to page (1 - $count)';
   @override String get go => 'Go';
   @override String get goToPage => 'Go to page';
-  @override String get classicViewer => 'Classic viewer (pen and highlights)';
   @override String get drawMode => 'Draw';
   @override String get penTool => 'Pen';
   @override String get markerTool => 'Marker';
@@ -822,6 +862,11 @@ class _En extends AppStrings {
   @override String get attachFailed => 'Could not add the file.';
   @override String get replaceImage => 'Replace';
   @override String get moveToPage => 'Move to page';
+  @override String get formatBold => 'Bold';
+  @override String get formatItalic => 'Italic';
+  @override String get formatUnderline => 'Underline';
+  @override String get smallerText => 'Smaller text';
+  @override String get largerText => 'Larger text';
   @override String get audioClip => 'Audio clip';
   @override String get closePlayer => 'Close player';
   @override String get play => 'Play';
@@ -945,10 +990,25 @@ class _Ar extends AppStrings {
   @override String get marginStandard => 'قياسية';
   @override String get marginWide => 'واسعة';
   @override String get backgroundColor => 'لون الخلفية';
-  @override String get colorsDayOnly => 'الوضع الليلي له ألوان هادئة خاصة، والألوان تعمل في الوضع النهاري.';
+  @override String get readerSettingsHint => 'خصّص تجربة القراءة';
+  @override String get marginsHint => 'المسافة حول الصفحة';
+  @override String get backgroundHint => 'اختر لون الخلفية الذي يريحك';
+  @override String get horizontalReadingHint => 'قلّب الصفحات مثل الكتاب';
+  @override String get nightModeHint => 'ألوان هادئة مريحة للعين';
+  @override String get fontSize => 'حجم الخط';
+  @override String get fontSizeHint => 'يعمل في القراءة النصية. الصفحة الأصلية تُكبَّر بإصبعين.';
+  @override String get textReading => 'القراءة النصية';
+  @override String get textReadingHint => 'نص الكتاب بعرض الشاشة، بلا تمرير جانبي';
+  @override String get resetFontSize => 'الحجم الافتراضي';
+  @override String get originalPages => 'الصفحات الأصلية';
+  @override String get readingPageText => 'نقرأ نص الصفحة';
+  @override String get noPageText => 'لا يوجد في هذه الصفحة نص يمكن استخراجه، فتغيير الخط غير متاح لها. كبّر الصفحة الأصلية بإصبعين.';
+  @override String get ocrPageNote => 'صفحة ممسوحة: النص مقروء على هاتفك وقد يحتوي أخطاء';
+  @override String get retry => 'حاول مرة أخرى';
+  @override List<String> get nightBackgrounds =>
+      const ['أوبسيديان', 'حبر', 'زيتوني دخاني', 'موكا'];
   @override List<String> get readerBackgrounds =>
       const ['كلاسيكي', 'أخضر', 'أزرق', 'فاتح', 'دافئ', 'داكن'];
-  @override String get verticalReading => 'قراءة عامودية';
   @override String get nightMode => 'الوضع الليلي';
   @override String get resetSettings => 'إعادة ضبط الإعدادات';
   @override List<String> get markStyles =>
@@ -957,8 +1017,9 @@ class _Ar extends AppStrings {
       const ['أصفر', 'أخضر', 'برتقالي', 'وردي', 'أزرق'];
   @override String get copyText => 'نسخ';
   @override String get markNote => 'ملاحظة';
-  @override String get markNoteTitle => 'ملاحظة على التحديد';
-  @override String get saveNote => 'حفظ';
+  @override String get markNoteTitle => 'أضف ملاحظة';
+  @override String get markNoteHint => 'اكتب ملاحظة عن هذا التحديد...';
+  @override String get saveNote => 'حفظ الملاحظة';
   @override String get removeMark => 'مسح التحديد';
   @override String get copied => 'تم النسخ';
   @override String get noSelectableText => 'لم يُعثر على نص في هذه الصفحة.';
@@ -972,7 +1033,7 @@ class _Ar extends AppStrings {
   @override String get openAppFailed => 'تعذّر فتح التطبيق.';
   @override String get addBookmark => 'علامة على هذه الصفحة';
   @override String get removeBookmark => 'إزالة العلامة';
-  @override String get bookmarkAdded => 'حُفظت العلامة';
+  @override String get bookmarkAdded => 'تمت الإضافة إلى العلامات بنجاح';
   @override String get bookmarkRemoved => 'أُزيلت العلامة';
   @override String get bookmarkAction => 'علامة';
   @override String get bookmarksTitle => 'العلامات المرجعية';
@@ -1222,11 +1283,13 @@ class _Ar extends AppStrings {
   @override String get exportFailed => 'فشل التصدير';
   @override String get notesNotSaved => 'لم تُحفظ الملاحظات';
   @override String get saveCopy => 'حفظ نسخة';
+  @override String get horizontalReading => 'قراءة أفقية (صفحة بصفحة)';
+  @override String get shareCopy => 'مشاركة نسخة';
+  @override String get preparingCopy => 'نجهّز النسخة...';
   @override String get savedSuccessfully => 'تم الحفظ';
   @override String goToPageRange(int count) => 'الذهاب إلى صفحة (1 - $count)';
   @override String get go => 'اذهب';
   @override String get goToPage => 'الذهاب إلى صفحة';
-  @override String get classicViewer => 'العارض القديم (القلم والتحديد)';
   @override String get drawMode => 'الرسم';
   @override String get penTool => 'قلم';
   @override String get markerTool => 'قلم تظليل';
@@ -1267,6 +1330,11 @@ class _Ar extends AppStrings {
   @override String get attachFailed => 'تعذّرت إضافة الملف.';
   @override String get replaceImage => 'استبدال';
   @override String get moveToPage => 'إرجاع إلى الصفحة';
+  @override String get formatBold => 'عريض';
+  @override String get formatItalic => 'مائل';
+  @override String get formatUnderline => 'تحته خط';
+  @override String get smallerText => 'نص أصغر';
+  @override String get largerText => 'نص أكبر';
   @override String get audioClip => 'مقطع صوتي';
   @override String get closePlayer => 'إغلاق المشغل';
   @override String get play => 'تشغيل';

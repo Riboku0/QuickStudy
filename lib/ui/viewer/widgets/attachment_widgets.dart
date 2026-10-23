@@ -121,7 +121,13 @@ class _RecordSheetState extends State<_RecordSheet> {
     final left = maxRecording - _watch.elapsed;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      // فوق أزرار أندرويد (شريط الحالة مخفي فالمساحة الآمنة صفر)
+      margin: EdgeInsets.fromLTRB(
+        12,
+        0,
+        12,
+        12 + MediaQuery.viewPaddingOf(context).bottom,
+      ),
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
         color: c.surface,
@@ -175,7 +181,7 @@ class _RecordSheetState extends State<_RecordSheet> {
                     child: AppIcon(
                       _recording ? AppIcons.stop : AppIcons.mic,
                       size: 30,
-                      color: Colors.white,
+                      color: c.onStrong,
                     ),
                   ),
                 ),

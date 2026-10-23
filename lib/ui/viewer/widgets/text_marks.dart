@@ -118,6 +118,10 @@ List<PageWord> orderWords(List<RawWord> raw) {
   return result;
 }
 
+// كلمات طبقة النص في صفحة (بلا OCR)، مرتبة للقراءة، في Isolate
+Future<List<PageWord>> extractPageWords(List<int> bytes, int page) =>
+    _extractInIsolate(bytes, page);
+
 // دالة عليا (ليست داخل الكلاس): الدالة المرسلة للـ Isolate تحمل كل ما حولها،
 // فلو أُنشئت داخل الكلاس لحملت _pages وفيها Future لا يمكن إرسالها.
 Future<List<PageWord>> _extractInIsolate(List<int> bytes, int page) =>
@@ -296,12 +300,21 @@ class TextMark {
 // ---------------------------------------------------------------------------
 
 class MarksPainter extends CustomPainter {
-  MarksPainter({required this.marks, this.selection, this.selectionColor});
+  MarksPainter({
+    required this.marks,
+    this.selection,
+    this.selectionColor,
+    this.focus,
+    this.focusColor,
+  });
 
   final List<TextMark> marks;
   final List<Rect>? selection;
   // لون التحديد (لون الثيم في العارض الجديد)، والافتراضي أزرق
   final Color? selectionColor;
+  // تظليل محفوظ مختار: إطار رفيع حوله بدل طبقة فوقه (تُعكّر لونه)
+  final List<Rect>? focus;
+  final Color? focusColor;
 
   static const Color _selectionColor = Color(0x553B82F6);
 
@@ -322,9 +335,11 @@ class MarksPainter extends CustomPainter {
 
         switch (mark.style) {
           case MarkStyle.highlight:
+            // حبة مستديرة لكل سطر، أقصر قليلًا من السطر حتى لا تتلاصق الأسطر
+            // فتصير كتلة واحدة أغمق في التداخل
             canvas.drawRRect(
-              RRect.fromRectAndRadius(r.inflate(1), const Radius.circular(3)),
-              Paint()..color = color.withValues(alpha: 0.42),
+              _pill(r),
+              Paint()..color = color.withValues(alpha: 0.40),
             );
           case MarkStyle.underline:
             _line(
@@ -342,15 +357,12 @@ class MarksPainter extends CustomPainter {
         }
       }
 
-      // نقطة صغيرة تدل على وجود ملاحظة
+      // شارة الملاحظة: دائرة بدرجة أعمق من لون التحديد وحلقة بيضاء، فيها
+      // ورقة بأسطر، على الزاوية العليا لآخر سطر (نفس مكان النقطة القديمة،
+      // فاللمس عليها كما هو)
       if ((mark.note ?? '').isNotEmpty && mark.rects.isNotEmpty) {
         final last = toPx(mark.rects.last);
-        final radius = math.max(3.5, last.height * 0.18);
-        canvas.drawCircle(
-          Offset(last.right + radius, last.top),
-          radius,
-          Paint()..color = color.withValues(alpha: 1),
-        );
+        _noteBadge(canvas, Offset(last.right, last.top), last.height, color);
       }
     }
 
@@ -358,8 +370,74 @@ class MarksPainter extends CustomPainter {
     if (sel != null) {
       final paint = Paint()..color = selectionColor ?? _selectionColor;
       for (final nr in sel) {
-        canvas.drawRect(toPx(nr).inflate(1), paint);
+        canvas.drawRRect(_pill(toPx(nr)), paint);
       }
+    }
+
+    final focused = focus;
+    if (focused != null) {
+      for (final nr in focused) {
+        final r = toPx(nr);
+        canvas.drawRRect(
+          _pill(r).inflate(1.5),
+          Paint()
+            ..color = focusColor ?? selectionColor ?? _selectionColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = math.max(1.4, r.height * 0.06),
+        );
+      }
+    }
+  }
+
+  static RRect _pill(Rect r) {
+    final pad = r.height * 0.06;
+    final box = Rect.fromLTRB(
+      r.left - r.height * 0.12,
+      r.top + pad,
+      r.right + r.height * 0.12,
+      r.bottom - pad,
+    );
+    return RRect.fromRectAndRadius(box, Radius.circular(box.height * 0.32));
+  }
+
+  static void _noteBadge(Canvas c, Offset at, double lineHeight, Color color) {
+    final radius = math.max(7.0, lineHeight * 0.42);
+    final center = at.translate(radius * 0.35, -radius * 0.15);
+    final deep = HSLColor.fromColor(color);
+    final fill = deep
+        .withLightness((deep.lightness * 0.72).clamp(0.28, 0.5))
+        .withSaturation((deep.saturation * 1.05).clamp(0.0, 0.9))
+        .toColor();
+
+    c.drawCircle(
+      center.translate(0, radius * 0.12),
+      radius * 1.12,
+      Paint()
+        ..color = const Color(0x33000000)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, radius * 0.3),
+    );
+    c.drawCircle(center, radius * 1.12, Paint()..color = Colors.white);
+    c.drawCircle(center, radius * 0.92, Paint()..color = fill);
+
+    // ورقة بزاوية مستديرة وثلاثة أسطر
+    final w = radius * 0.9;
+    final h = radius * 1.05;
+    final sheet = Rect.fromCenter(center: center, width: w, height: h);
+    c.drawRRect(
+      RRect.fromRectAndRadius(sheet, Radius.circular(radius * 0.16)),
+      Paint()..color = Colors.white,
+    );
+    final ink = Paint()
+      ..color = fill
+      ..strokeWidth = math.max(1.0, radius * 0.11)
+      ..strokeCap = StrokeCap.round;
+    for (final (i, f) in [0.62, 0.62, 0.38].indexed) {
+      final y = sheet.top + h * (0.3 + i * 0.2);
+      c.drawLine(
+        Offset(sheet.left + w * 0.2, y),
+        Offset(sheet.left + w * (0.2 + f), y),
+        ink,
+      );
     }
   }
 
@@ -437,7 +515,10 @@ class SelectionHandle extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// قائمة التحديد: الأنواع الأربعة + الألوان + مسح / نسخ / ملاحظة / مشاركة
+// قائمة التحديد: الأنواع الأربعة + الألوان + مسح / نسخ / ملاحظة / علامة / المزيد
+// شكلها من مرجع المستخدم (23 أكتوبر): بطاقة ناعمة بزوايا كبيرة وذيل يشير إلى
+// النص، الأنواع في شريط مستدير والمختار رقاقة بلون التحديد، دوائر ألوان بحلقة
+// بيضاء، والإجراءات في دوائر خفيفة بينها فواصل. الألوان من الورق والثيم.
 // ---------------------------------------------------------------------------
 
 class SelectionMenu extends StatelessWidget {
@@ -459,9 +540,13 @@ class SelectionMenu extends StatelessWidget {
     this.dark = false,
     this.surface,
     this.accent,
+    this.tailX,
+    this.tailUp = false,
   });
 
-  static const double height = 168;
+  // ارتفاع البطاقة بلا الذيل، تقدير أول (العارض يقيسه بعد الرسم)
+  static const double height = 222;
+  static const double tail = 10;
 
   final MarkStyle style;
   final int color;
@@ -477,94 +562,99 @@ class SelectionMenu extends StatelessWidget {
   final VoidCallback onBookmark;
   final VoidCallback onMore; // الترجمة والمشاركة
   final bool dark; // ليلي: ألوان كحلية هادئة
-  // لون اللوحة (درجة من لون الورق) ولون الثيم للاختيار؛ null = الافتراضي
+  // لون اللوحة (درجة من لون الورق) ولون الثيم؛ null = الافتراضي
   final Color? surface;
   final Color? accent;
+  // مكان الذيل أفقيًا داخل القائمة (null = بلا ذيل)، وtailUp = القائمة تحت النص
+  final double? tailX;
+  final bool tailUp;
 
-  Color get _ink => dark ? const Color(0xFFE3E6EC) : const Color(0xFF202020);
-  Color get _line => dark ? const Color(0x1FFFFFFF) : const Color(0x14000000);
+  Color get _ink => dark ? const Color(0xFFE3E6EC) : const Color(0xFF2A2A2E);
+  Color get _line => dark ? const Color(0x1FFFFFFF) : const Color(0x12000000);
   Color get _muted => dark ? const Color(0x99E3E6EC) : const Color(0x8A000000);
   Color get _surface =>
       surface ?? (dark ? const Color(0xFF262B36) : Colors.white);
-  Color get _accent => accent ?? const Color(0xFF7259DA);
+  // خلفية الشريط والدوائر: أغمق قليلًا من اللوحة نهارًا وأفتح ليلًا
+  Color get _well => dark ? const Color(0x12FFFFFF) : const Color(0x0A000000);
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    final selected = Color(color);
+    final card = DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? 0.35 : 0.12),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: dark ? 0.40 : 0.10),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+          // توهج خفيف بلون التحديد المختار
+          BoxShadow(
+            color: selected.withValues(alpha: dark ? 0.10 : 0.18),
+            blurRadius: 36,
+            spreadRadius: -6,
           ),
         ],
       ),
       child: Material(
         color: _surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(30),
           side: BorderSide(color: _line),
         ),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // الأنواع
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  for (final s in MarkStyle.values)
-                    _StyleButton(
-                      style: s,
-                      color: Color(color),
-                      selected: hasMark && s == style,
-                      tooltip: labels.styleNames[s.index],
-                      onTap: () => onStyle(s),
-                      ink: _ink,
-                      accent: _accent,
-                    ),
-                ],
+              // الأنواع في شريط مستدير، بينها فواصل رفيعة
+              Container(
+                height: 56,
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: _well,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: Row(
+                  children: [
+                    for (final (i, s) in MarkStyle.values.indexed) ...[
+                      if (i > 0)
+                        _Separator(
+                          color: _line,
+                          hidden:
+                              hasMark &&
+                              (s == style || MarkStyle.values[i - 1] == style),
+                        ),
+                      Expanded(
+                        child: _StyleButton(
+                          style: s,
+                          color: selected,
+                          selected: hasMark && s == style,
+                          tooltip: labels.styleNames[s.index],
+                          onTap: () => onStyle(s),
+                          ink: _ink,
+                          dark: dark,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              // الألوان: دوائر، والمختار بحلقة بلون الثيم
+              const SizedBox(height: 10),
+              // الألوان: دوائر بحلقة بيضاء، والمختار بحلقة من لونه
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   for (final (i, c) in markColors.indexed)
-                    Semantics(
-                      button: true,
+                    _ColorDot(
+                      color: Color(c),
                       selected: hasMark && c == color,
                       label: labels.colorNames[i],
-                      child: InkResponse(
-                        onTap: () => onColor(c),
-                        radius: 22,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          width: 30,
-                          height: 30,
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: hasMark && c == color
-                                  ? _accent
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Color(c),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ),
+                      ring: _surface,
+                      onTap: () => onColor(c),
                     ),
                 ],
               ),
@@ -577,55 +667,50 @@ class SelectionMenu extends StatelessWidget {
                   style: TextStyle(fontSize: 12.5, color: _muted),
                 ),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Divider(height: 1, color: _line),
-              const SizedBox(height: 2),
-              // الإجراءات: أيقونة + اسم صغير
-              Row(
-                children: [
-                  if (hasMark)
-                    Expanded(
-                      child: _Action(
-                        AppIcons.trash,
-                        labels.delete,
-                        onDelete,
-                        _ink,
-                      ),
-                    ),
-                  Expanded(
-                    child: _Action(AppIcons.copy, labels.copy, onCopy, _ink),
-                  ),
-                  Expanded(
-                    child: _Action(
-                      AppIcons.stickyNote,
-                      labels.note,
-                      onNote,
-                      _ink,
-                    ),
-                  ),
-                  Expanded(
-                    child: _Action(
-                      AppIcons.bookmarkAdd,
-                      labels.bookmark,
-                      onBookmark,
-                      _ink,
-                    ),
-                  ),
-                  // المشاركة صارت داخل "المزيد" مع الترجمة
-                  Expanded(
-                    child: _Action(
-                      AppIcons.moreHorizontal,
-                      labels.more,
-                      onMore,
-                      _ink,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 6),
+              // الإجراءات: دائرة خفيفة بأيقونة + اسم صغير، بينها فواصل
+              IntrinsicHeight(
+                child: Row(
+                  children: [
+                    for (final (i, a) in [
+                      if (hasMark) (AppIcons.trash, labels.delete, onDelete),
+                      (AppIcons.copy, labels.copy, onCopy),
+                      (AppIcons.stickyNote, labels.note, onNote),
+                      (AppIcons.bookmarkAdd, labels.bookmark, onBookmark),
+                      // المشاركة داخل "المزيد" مع الترجمة
+                      (AppIcons.moreHorizontal, labels.more, onMore),
+                    ].indexed) ...[
+                      if (i > 0) _Separator(color: _line, inset: 14),
+                      Expanded(child: _Action(a.$1, a.$2, a.$3, _ink, _well)),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),
         ),
       ),
+    );
+
+    final x = tailX;
+    if (x == null) return card;
+    // الذيل بنفس لون اللوحة يتصل بها (يُرسم فوق حدها)
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        card,
+        Positioned(
+          left: x - 11,
+          top: tailUp ? -tail + 1 : null,
+          bottom: tailUp ? null : -tail + 1,
+          child: CustomPaint(
+            size: const Size(22, tail),
+            painter: _TailPainter(color: _surface, up: tailUp),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -653,26 +738,150 @@ class SelectionLabels {
   final String more;
 }
 
+class _Separator extends StatelessWidget {
+  const _Separator({required this.color, this.inset = 12, this.hidden = false});
+
+  final Color color;
+  final double inset;
+  final bool hidden; // بجانب الرقاقة المختارة لا فاصل
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: inset),
+      child: SizedBox(
+        width: 1,
+        child: ColoredBox(color: hidden ? Colors.transparent : color),
+      ),
+    );
+  }
+}
+
+class _TailPainter extends CustomPainter {
+  const _TailPainter({required this.color, required this.up});
+
+  final Color color;
+  final bool up;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    // مثلث بطرف مستدير
+    final path = up
+        ? (Path()
+            ..moveTo(0, h)
+            ..quadraticBezierTo(w * 0.38, h * 0.62, w * 0.46, h * 0.16)
+            ..quadraticBezierTo(w / 2, 0, w * 0.54, h * 0.16)
+            ..quadraticBezierTo(w * 0.62, h * 0.62, w, h)
+            ..close())
+        : (Path()
+            ..moveTo(0, 0)
+            ..quadraticBezierTo(w * 0.38, h * 0.38, w * 0.46, h * 0.84)
+            ..quadraticBezierTo(w / 2, h, w * 0.54, h * 0.84)
+            ..quadraticBezierTo(w * 0.62, h * 0.38, w, 0)
+            ..close());
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_TailPainter old) => old.color != color || old.up != up;
+}
+
+class _ColorDot extends StatelessWidget {
+  const _ColorDot({
+    required this.color,
+    required this.selected,
+    required this.label,
+    required this.ring,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool selected;
+  final String label;
+  final Color ring;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 26,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 40,
+              height: 40,
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? color : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: ring, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  // لمعة خفيفة من الأعلى
+                  gradient: RadialGradient(
+                    center: const Alignment(-0.3, -0.5),
+                    radius: 0.9,
+                    colors: [Color.lerp(color, Colors.white, 0.25)!, color],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Action extends StatelessWidget {
-  const _Action(this.icon, this.label, this.onTap, this.ink);
+  const _Action(this.icon, this.label, this.onTap, this.ink, this.well);
 
   final AppIconData icon;
   final String label;
   final VoidCallback onTap;
   final Color ink;
+  final Color well;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 52),
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            AppIcon(icon, size: 21, color: ink),
-            const SizedBox(height: 3),
+            Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: well, shape: BoxShape.circle),
+              child: AppIcon(icon, size: 21, color: ink),
+            ),
+            const SizedBox(height: 4),
             Text(
               label,
               maxLines: 1,
@@ -680,7 +889,7 @@ class _Action extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: ink.withValues(alpha: 0.8),
+                color: ink.withValues(alpha: 0.75),
               ),
             ),
           ],
@@ -690,7 +899,7 @@ class _Action extends StatelessWidget {
   }
 }
 
-// زر "T" يعرض شكل النوع نفسه
+// زر "T" يعرض شكل النوع نفسه؛ المختار رقاقة بلون التحديد وشرطة تحتها
 class _StyleButton extends StatelessWidget {
   const _StyleButton({
     required this.style,
@@ -699,7 +908,7 @@ class _StyleButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     required this.ink,
-    required this.accent,
+    required this.dark,
   });
 
   final MarkStyle style;
@@ -708,28 +917,33 @@ class _StyleButton extends StatelessWidget {
   final String tooltip;
   final VoidCallback onTap;
   final Color ink;
-  final Color accent;
+  final bool dark;
 
   @override
   Widget build(BuildContext context) {
+    // على الرقاقة الملونة النص داكن دائمًا (ألوان التحديد فاتحة)
+    final glyphInk = selected ? const Color(0xFF2A2A2E) : ink;
     final base = TextStyle(
       fontSize: 22,
-      fontWeight: FontWeight.w700,
-      color: ink,
+      fontWeight: FontWeight.w800,
+      color: glyphInk,
       height: 1.1,
     );
 
     final glyph = switch (style) {
       MarkStyle.highlight => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        color: color.withValues(alpha: 0.5),
+        padding: const EdgeInsets.symmetric(horizontal: 5),
+        decoration: BoxDecoration(
+          color: selected ? null : color.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(4),
+        ),
         child: Text('T', style: base),
       ),
       MarkStyle.underline => Text(
         'T',
         style: base.copyWith(
           decoration: TextDecoration.underline,
-          decorationColor: color,
+          decorationColor: selected ? glyphInk : color,
           decorationThickness: 2.5,
         ),
       ),
@@ -737,7 +951,7 @@ class _StyleButton extends StatelessWidget {
         'T',
         style: base.copyWith(
           decoration: TextDecoration.lineThrough,
-          decorationColor: color,
+          decorationColor: selected ? glyphInk : color,
           decorationThickness: 2.5,
         ),
       ),
@@ -746,7 +960,7 @@ class _StyleButton extends StatelessWidget {
         style: base.copyWith(
           decoration: TextDecoration.underline,
           decorationStyle: TextDecorationStyle.wavy,
-          decorationColor: color,
+          decorationColor: selected ? glyphInk : color,
           decorationThickness: 2,
         ),
       ),
@@ -756,19 +970,24 @@ class _StyleButton extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(22),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: 50,
-          height: 42,
+          duration: const Duration(milliseconds: 160),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? accent.withValues(alpha: 0.16) : null,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? accent : Colors.transparent,
-              width: 1.4,
-            ),
+            color: selected
+                ? color.withValues(alpha: dark ? 0.85 : 0.75)
+                : null,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.45),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
           ),
           child: glyph,
         ),

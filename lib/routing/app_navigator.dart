@@ -13,7 +13,6 @@ import '../ui/study/widgets/chapter_screen.dart';
 import '../ui/study/widgets/flashcards_screen.dart';
 import '../ui/study/widgets/quiz_screen.dart';
 import '../ui/study/widgets/subject_screen.dart';
-import '../ui/viewer/widgets/document_viewer_screen.dart';
 import '../ui/viewer/widgets/epub_reader_screen.dart';
 import '../ui/viewer/widgets/pdf_reader_screen.dart';
 
@@ -67,10 +66,11 @@ abstract final class AppNavigator {
       return;
     }
 
+    // العارض يفتح PDF فقط (رفع الصور أُلغي، والعارض القديم حُذف)
+    if (!lecture.isPdf) return;
+
     // ملفات PDF تفتح على آخر صفحة مقروءة، وتسجّل تقدمها
-    final progress = lecture.isPdf
-        ? context.read<ReadingProgressRepository>()
-        : null;
+    final progress = context.read<ReadingProgressRepository>();
     // وقت القراءة: من فتح العارض حتى الرجوع منه (لأرقام الرئيسية)
     final stats = context.read<ReadingStatsRepository>();
     final watch = Stopwatch()..start();
@@ -79,49 +79,22 @@ abstract final class AppNavigator {
     final visited = <int>{};
     void record(int p, int count) {
       visited.add(p);
-      progress?.record(lecture.id, p, count);
+      progress.record(lecture.id, p, count);
     }
 
-    // PDF: العارض الجديد (pdfrx). من قائمته يمكن فتح العارض القديم
-    // (القلم والتحديد) على نفس الصفحة حتى تُبنى هذه الميزات فيه.
-    int? classicPage;
-    if (lecture.isPdf) {
-      final result = await navigator.push<OpenClassicViewer>(
-        MaterialPageRoute(
-          builder: (_) => Theme(
-            data: AppTheme.lightOnly(),
-            child: PdfReaderScreen(
-              fileId: lecture.id,
-              fileName: lecture.name,
-              filePath: lecture.filePath,
-              initialPage: page ?? progress?.progressFor(lecture.id)?.page,
-              onPageChanged: record,
-              openNoteId: noteId,
-            ),
-          ),
-        ),
-      );
-      if (result == null) {
-        watch.stop();
-        await stats.addSession(watch.elapsed, pages: visited.length);
-        return;
-      }
-      classicPage = result.page;
-    }
-
+    // PDF: العارض الجديد (pdfrx)
     await navigator.push(
       MaterialPageRoute<void>(
         // العارض يبقى فاتحًا حتى في الوضع الداكن
         builder: (_) => Theme(
           data: AppTheme.lightOnly(),
-          child: DocumentViewerPage(
+          child: PdfReaderScreen(
             fileId: lecture.id,
             fileName: lecture.name,
             filePath: lecture.filePath,
-            fileType: lecture.fileType,
-            initialPage:
-                classicPage ?? page ?? progress?.progressFor(lecture.id)?.page,
-            onPageChanged: progress == null ? null : record,
+            initialPage: page ?? progress.progressFor(lecture.id)?.page,
+            onPageChanged: record,
+            openNoteId: noteId,
           ),
         ),
       ),
