@@ -19,7 +19,7 @@ extension ReaderBackgroundColor on ReaderBackground {
     ReaderBackground.blue => const Color(0xFFDFEAF2), // Powder Blue
     ReaderBackground.light => const Color(0xFFF2F0E9), // Soft Paper
     ReaderBackground.warm => const Color(0xFFF2E2D8), // Peach Cream
-    ReaderBackground.dark => const Color(0xFF292E32), // Midnight Slate
+    ReaderBackground.dark => const Color(0xFF0B0F14), // Obsidian
   };
 
   // لون النص المناسب لكل خلفية
@@ -35,30 +35,17 @@ extension ReaderBackgroundColor on ReaderBackground {
   bool get isDark => this == ReaderBackground.dark;
 }
 
-// ثيمات الوضع الليلي الأربعة: ألوانها كلها في NightTheme (reader_chrome.dart)
-extension NightBackgroundColor on NightBackground {
-  NightTheme get theme => switch (this) {
-    NightBackground.obsidian => NightTheme.obsidian,
-    NightBackground.ink => NightTheme.ink,
-    NightBackground.oliveSmoke => NightTheme.oliveSmoke,
-    NightBackground.mocha => NightTheme.mocha,
-  };
-
-  Color get color => theme.page;
-  Color get ink => theme.text;
-}
-
 // ورق القراءة الحالي ونصه حسب الإعدادات (للعارض)
 extension ReaderPaper on ReaderSettings {
-  Color get paperColor => nightMode ? nightBackground.color : background.color;
-  Color get inkColor => nightMode ? nightBackground.ink : background.ink;
-  bool get darkPaper => nightMode || background.isDark;
+  Color get paperColor => background.color;
+  Color get inkColor => background.ink;
+  bool get darkPaper => background.isDark;
 
   // مصدر واحد لكل ألوان القارئ واللوحات (الصفحة تُلوَّن من paperColor/inkColor)
   ReaderChrome get chrome => ReaderChrome(
     dark: darkPaper,
     paper: paperColor,
-    night: nightMode ? nightBackground.theme : null,
+    night: null,
   );
 }
 
@@ -175,7 +162,6 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet>
       builder: (context, _) {
         final r = repository.settings;
         void set(ReaderSettings value) => repository.update(value);
-        final night = r.nightMode;
         final c = r.chrome;
         final title = TextStyle(
           fontSize: 14.5,
@@ -354,7 +340,7 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet>
                                 ),
                                 const SizedBox(height: 14),
                                 GridView.count(
-                                  crossAxisCount: night ? 2 : 3,
+                                  crossAxisCount: 3,
                                   shrinkWrap: true,
                                   // بلا حشوة المساحة الآمنة التي تضيفها القوائم تلقائيًا
                                   // (كانت فراغًا بارتفاع أزرار أندرويد تحت الألوان)
@@ -362,71 +348,20 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet>
                                   physics: const NeverScrollableScrollPhysics(),
                                   mainAxisSpacing: 10,
                                   crossAxisSpacing: 10,
-                                  childAspectRatio: night ? 2.5 : 1.45,
-                                  children: night
-                                      ? [
-                                          for (final (i, b)
-                                              in NightBackground.values.indexed)
-                                            _Swatch(
-                                              color: b.color,
-                                              label: s.nightBackgrounds[i],
-                                              selected: r.nightBackground == b,
-                                              chrome: c,
-                                              outline: c.strong,
-                                              onTap: () => set(
-                                                r.copyWith(nightBackground: b),
-                                              ),
-                                            ),
-                                        ]
-                                      : [
-                                          for (final (i, b)
-                                              in ReaderBackground
-                                                  .values
-                                                  .indexed)
-                                            _Swatch(
-                                              color: b.color,
-                                              label: s.readerBackgrounds[i],
-                                              selected: r.background == b,
-                                              chrome: c,
-                                              onTap: () => set(
-                                                r.copyWith(background: b),
-                                              ),
-                                            ),
-                                        ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-
-                          // القراءة النصية وحجم خطها (النص المستخرج بعرض الشاشة)
-                          _Card(
-                            chrome: c,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _SwitchRow(
-                                  leading: AppIcon(
-                                    AppIcons.textReading,
-                                    size: 22,
-                                    color: c.icon,
-                                  ),
-                                  title: s.textReading,
-                                  hint: s.textReadingHint,
-                                  titleStyle: title,
-                                  hintStyle: hint,
-                                  value: widget.textMode.value,
-                                  chrome: c,
-                                  onChanged: (v) => widget.textMode.value = v,
-                                ),
-                                Divider(height: 22, color: c.line),
-                                _FontSizeRow(
-                                  size: r.textFontSize,
-                                  chrome: c,
-                                  title: title,
-                                  hint: hint,
-                                  onChanged: (v) =>
-                                      set(r.copyWith(textFontSize: v)),
+                                  childAspectRatio: 1.45,
+                                  children: [
+                                    for (final (i, b)
+                                        in ReaderBackground.values.indexed)
+                                      _Swatch(
+                                        color: b.color,
+                                        label: s.readerBackgrounds[i],
+                                        selected: r.background == b,
+                                        chrome: c,
+                                        onTap: () => set(
+                                          r.copyWith(background: b),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -453,33 +388,6 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet>
                           ),
                           const SizedBox(height: 10),
 
-                          // الوضع الليلي
-                          _Card(
-                            chrome: c,
-                            child: _SwitchRow(
-                              leading: Container(
-                                width: 40,
-                                height: 40,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: c.accent,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: AppIcon(
-                                  AppIcons.moon,
-                                  size: 21,
-                                  color: c.strong,
-                                ),
-                              ),
-                              title: s.nightMode,
-                              hint: s.nightModeHint,
-                              titleStyle: title,
-                              hintStyle: hint,
-                              value: night,
-                              chrome: c,
-                              onChanged: (v) => set(r.copyWith(nightMode: v)),
-                            ),
-                          ),
                           const SizedBox(height: 16),
 
                           // إعادة الضبط
@@ -564,123 +472,6 @@ class _SheetScrollPhysics extends ClampingScrollPhysics {
     ScrollMetrics position,
     double velocity,
   ) => held() ? null : super.createBallisticSimulation(position, velocity);
-}
-
-// حجم خط القراءة النصية: تصغير، الحجم الحالي، تكبير، الافتراضي
-class _FontSizeRow extends StatelessWidget {
-  const _FontSizeRow({
-    required this.size,
-    required this.chrome,
-    required this.title,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final double size;
-  final ReaderChrome chrome;
-  final TextStyle title;
-  final TextStyle hint;
-  final ValueChanged<double> onChanged;
-
-  static const double _step = 2;
-
-  double _clamp(double v) => v
-      .clamp(ReaderSettings.minTextFontSize, ReaderSettings.maxTextFontSize)
-      .toDouble();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = AppStrings.of(context);
-    final c = chrome;
-    final canDown = size > ReaderSettings.minTextFontSize;
-    final canUp = size < ReaderSettings.maxTextFontSize;
-    final isDefault = size == ReaderSettings.defaultTextFontSize;
-
-    Widget button(double letter, String tooltip, double? to) => Tooltip(
-      message: tooltip,
-      child: Semantics(
-        button: true,
-        enabled: to != null,
-        label: tooltip,
-        child: Material(
-          color: c.chip,
-          shape: CircleBorder(side: BorderSide(color: c.line)),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: to == null ? null : () => onChanged(to),
-            child: SizedBox(
-              width: 46,
-              height: 46,
-              child: Center(
-                child: ExcludeSemantics(
-                  child: Text(
-                    'A',
-                    style: TextStyle(
-                      fontSize: letter,
-                      fontWeight: FontWeight.w800,
-                      color: to == null
-                          ? c.muted.withValues(alpha: 0.4)
-                          : c.ink,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            AppIcon(AppIcons.fontSize, size: 22, color: c.icon),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _Texts(
-                title: s.fontSize,
-                hint: s.fontSizeHint,
-                titleStyle: title,
-                hintStyle: hint,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            button(14, s.smallerText, canDown ? _clamp(size - _step) : null),
-            Expanded(
-              child: Text(
-                '${size.round()}',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: c.ink,
-                ),
-              ),
-            ),
-            button(21, s.largerText, canUp ? _clamp(size + _step) : null),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: isDefault
-                  ? null
-                  : () => onChanged(ReaderSettings.defaultTextFontSize),
-              style: TextButton.styleFrom(
-                foregroundColor: c.strong,
-                disabledForegroundColor: c.muted.withValues(alpha: 0.5),
-                minimumSize: const Size(48, 46),
-              ),
-              child: Text(s.resetFontSize),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 }
 
 // العنوان والوصف، والبومة في الزاوية العليا (يمينًا بالإنجليزية ويسارًا
@@ -920,8 +711,7 @@ class _SwitchRow extends StatelessWidget {
 }
 
 // عينة لون: معاينة مستديرة واسمها تحتها. المختار بإطار وعلامة صح:
-// outline = لون الثيم (الليلي)، وبدونه درجة أعمق من اللون نفسه (النهار، طلب
-// المستخدم 19 أكتوبر)
+// درجة أعمق من اللون نفسه تحدد العينة المختارة.
 class _Swatch extends StatelessWidget {
   const _Swatch({
     required this.color,
@@ -929,7 +719,6 @@ class _Swatch extends StatelessWidget {
     required this.selected,
     required this.chrome,
     required this.onTap,
-    this.outline,
   });
 
   final Color color;
@@ -937,7 +726,6 @@ class _Swatch extends StatelessWidget {
   final bool selected;
   final ReaderChrome chrome;
   final VoidCallback onTap;
-  final Color? outline;
 
   // نفس اللون أغمق (للورق الفاتح) أو أفتح (للورق الداكن)
   Color get _deep => color.computeLuminance() > 0.4
@@ -946,7 +734,7 @@ class _Swatch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mark = outline ?? _deep;
+    final mark = _deep;
     return Semantics(
       button: true,
       selected: selected,

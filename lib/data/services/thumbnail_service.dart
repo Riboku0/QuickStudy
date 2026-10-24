@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -36,6 +37,67 @@ class ThumbnailService {
     return _inFlight[pdfPath] ??= _load(pdfPath).whenComplete(() {
       _inFlight.remove(pdfPath);
     });
+  }
+
+  Future<Uint8List?> epubCover(String epubPath) {
+    final cached = _memory[epubPath];
+    if (cached != null) return Future.value(cached);
+    return _inFlight[epubPath] ??= _loadEpubCover(epubPath).whenComplete(() {
+      _inFlight.remove(epubPath);
+    });
+  }
+
+  Future<Uint8List?> _loadEpubCover(String epubPath) async {
+    try {
+      final source = File(epubPath);
+      if (!await source.exists()) return null;
+      final archive = ZipDecoder().decodeBytes(await source.readAsBytes());
+      final container = archive.findFile('META-INF/container.xml');
+      if (container == null) return null;
+      final containerXml = String.fromCharCodes(container.content as List<int>);
+      final root = RegExp(r'''full-path\s*=\s*["']([^"']+)["']''')
+          .firstMatch(containerXml)
+          ?.group(1);
+      if (root == null) return null;
+      final opfFile = archive.findFile(root);
+      if (opfFile == null) return null;
+      final opf = String.fromCharCodes(opfFile.content as List<int>);
+      final coverId = RegExp(
+        r'''<meta\b[^>]*name\s*=\s*["']cover["'][^>]*content\s*=\s*["']([^"']+)["']''',
+        caseSensitive: false,
+      ).firstMatch(opf)?.group(1);
+      final manifest = RegExp(r'''<item\b[^>]*>''', caseSensitive: false)
+          .allMatches(opf)
+          .map((m) => m.group(0)!)
+          .toList();
+      String? href;
+      for (final item in manifest) {
+        final id = RegExp(r'''\bid\s*=\s*["']([^"']+)["']''')
+            .firstMatch(item)
+            ?.group(1);
+        final properties = RegExp(r'''\bproperties\s*=\s*["']([^"']+)["']''')
+            .firstMatch(item)
+            ?.group(1);
+        if (id == coverId || (properties?.split(' ').contains('cover-image') ?? false)) {
+          href = RegExp(r'''\bhref\s*=\s*["']([^"']+)["']''')
+              .firstMatch(item)
+              ?.group(1);
+          if (href != null) break;
+        }
+      }
+      if (href == null) return null;
+      final coverPath = p.normalize(p.join(p.dirname(root), Uri.decodeComponent(href)))
+          .replaceAll('\\', '/');
+      final cover = archive.findFile(coverPath);
+      if (cover == null) return null;
+      final bytes = Uint8List.fromList(cover.content as List<int>);
+      if (bytes.isEmpty) return null;
+      _memory[epubPath] = bytes;
+      return bytes;
+    } catch (e, st) {
+      debugPrint('[Thumbnail] EPUB cover failed for $epubPath: $e\n$st');
+      return null;
+    }
   }
 
   Future<Uint8List?> _load(String pdfPath) async {

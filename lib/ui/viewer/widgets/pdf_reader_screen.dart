@@ -3872,16 +3872,6 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 );
               },
             ),
-            // التبديل بين الصفحات الأصلية والقراءة النصية
-            IconButton(
-              tooltip: _textMode.value ? s.originalPages : s.textReading,
-              onPressed: () => _textMode.value = !_textMode.value,
-              icon: AppIcon(
-                _textMode.value ? AppIcons.pdfPages : AppIcons.textReading,
-                size: 23,
-                color: icon,
-              ),
-            ),
             if (!_textMode.value)
               // الرسم الحر
               IconButton(
@@ -4040,28 +4030,6 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 ),
               ),
             ),
-            // القراءة النصية فوق العارض (العارض باقٍ مخفيًا فلا يُعاد فتح الكتاب)
-            if (_textMode.value)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: paper,
-                  child: PdfTextReader(
-                    key: _textReaderKey,
-                    lectureId: widget.fileId,
-                    filePath: widget.filePath,
-                    pageCount: math.max(_pageCount, 1),
-                    initialPage: _page.value,
-                    fontSize: _settings.textFontSize,
-                    sidePadding: 14 + _margin,
-                    chrome: c,
-                    onPageChanged: _onPageChanged,
-                    onShowOriginal: (page) {
-                      _page.value = page;
-                      _textMode.value = false;
-                    },
-                  ),
-                ),
-              ),
             // السطوع: طبقة سوداء شفافة لا تلتقط اللمس
             if (_settings.brightness < 1)
               Positioned.fill(

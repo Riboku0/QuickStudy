@@ -125,6 +125,20 @@ abstract class AppStrings {
   String get bookmarkAction;
   String get bookmarksTitle;
   String get bookmarksEmpty;
+  String get epubAnnotations;
+  String get epubAnnotationsEmpty;
+  String get epubSearch;
+  String get epubSearchHint;
+  String get epubNoSearchResults;
+  String get highlight;
+  String get epubUnderline;
+  String get strikeThrough;
+  String get wavyUnderline;
+  String get readingDirection;
+  String get automaticDirection;
+  String get leftToRight;
+  String get rightToLeft;
+  String get paperColor;
   String get shelvesTitle;
   String pageNumber(int n);
   String get recentFiles;
@@ -541,7 +555,7 @@ class _En extends AppStrings {
   @override List<String> get nightBackgrounds =>
       const ['Obsidian', 'Ink', 'Olive Smoke', 'Mocha'];
   @override List<String> get readerBackgrounds =>
-      const ['Classic', 'Green', 'Blue', 'Light', 'Warm', 'Dark'];
+      const ['Classic', 'Green', 'Blue', 'Light', 'Warm', 'Obsidian'];
   @override String get nightMode => 'Night mode';
   @override String get resetSettings => 'Reset settings';
   @override List<String> get markStyles =>
@@ -572,6 +586,20 @@ class _En extends AppStrings {
   @override String get bookmarksTitle => 'Bookmarks';
   @override String get bookmarksEmpty =>
       'Save a page with the bookmark button while reading, or select text and tap Bookmark.';
+  @override String get epubAnnotations => 'Highlights, notes & bookmarks';
+  @override String get epubAnnotationsEmpty => 'Nothing saved in this book yet';
+  @override String get epubSearch => 'Search in book';
+  @override String get epubSearchHint => 'Type a word or phrase';
+  @override String get epubNoSearchResults => 'No results found';
+  @override String get highlight => 'Highlight';
+  @override String get epubUnderline => 'Underline';
+  @override String get strikeThrough => 'Strike-through';
+  @override String get wavyUnderline => 'Wavy underline';
+  @override String get readingDirection => 'Reading direction';
+  @override String get automaticDirection => 'Automatic';
+  @override String get leftToRight => 'Left to right';
+  @override String get rightToLeft => 'Right to left';
+  @override String get paperColor => 'Paper color';
   @override String get shelvesTitle => 'Your books';
   @override String pageNumber(int n) => 'Page $n';
   @override String get recentFiles => 'Recent files';
@@ -1008,7 +1036,7 @@ class _Ar extends AppStrings {
   @override List<String> get nightBackgrounds =>
       const ['أوبسيديان', 'حبر', 'زيتوني دخاني', 'موكا'];
   @override List<String> get readerBackgrounds =>
-      const ['كلاسيكي', 'أخضر', 'أزرق', 'فاتح', 'دافئ', 'داكن'];
+      const ['كلاسيكي', 'أخضر', 'أزرق', 'فاتح', 'دافئ', 'Obsidian'];
   @override String get nightMode => 'الوضع الليلي';
   @override String get resetSettings => 'إعادة ضبط الإعدادات';
   @override List<String> get markStyles =>
@@ -1039,6 +1067,20 @@ class _Ar extends AppStrings {
   @override String get bookmarksTitle => 'العلامات المرجعية';
   @override String get bookmarksEmpty =>
       'احفظ صفحة بزر العلامة أثناء القراءة، أو حدّد نصًا واضغط علامة.';
+  @override String get epubAnnotations => 'التظليلات والملاحظات والعلامات';
+  @override String get epubAnnotationsEmpty => 'لم تحفظ شيئًا في هذا الكتاب بعد';
+  @override String get epubSearch => 'البحث داخل الكتاب';
+  @override String get epubSearchHint => 'اكتب كلمة أو عبارة';
+  @override String get epubNoSearchResults => 'لا توجد نتائج';
+  @override String get highlight => 'تظليل';
+  @override String get epubUnderline => 'تسطير';
+  @override String get strikeThrough => 'شطب';
+  @override String get wavyUnderline => 'خط متموّج';
+  @override String get readingDirection => 'اتجاه القراءة';
+  @override String get automaticDirection => 'تلقائي';
+  @override String get leftToRight => 'من اليسار إلى اليمين';
+  @override String get rightToLeft => 'من اليمين إلى اليسار';
+  @override String get paperColor => 'لون الورق';
   @override String get shelvesTitle => 'كتبك';
   @override String pageNumber(int n) => 'صفحة $n';
   @override String get recentFiles => 'آخر الملفات';

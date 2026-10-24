@@ -77,6 +77,8 @@ dev_dependencies:
 dependency_overrides:
   pdfrx:
     path: third_party/pdfrx
+  flutter_epub_viewer:
+    path: third_party/flutter_epub_viewer
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -56,10 +56,12 @@ class _FileThumbnailState extends State<FileThumbnail> {
 
   void _loadPdfIfNeeded() {
     final lecture = widget.lecture;
-    if (!lecture.isPdf || !lecture.exists) return;
+    if ((!lecture.isPdf && !lecture.isEpub) || !lecture.exists) return;
     try {
       _cached = ThumbnailService.instance.peek(lecture.filePath);
-      _pdfPage = ThumbnailService.instance.pdfFirstPage(lecture.filePath);
+      _pdfPage = lecture.isEpub
+          ? ThumbnailService.instance.epubCover(lecture.filePath)
+          : ThumbnailService.instance.pdfFirstPage(lecture.filePath);
     } catch (_) {
       _pdfPage = Future.value(null); // تظهر الأيقونة بدل المعاينة
     }
@@ -76,7 +78,9 @@ class _FileThumbnailState extends State<FileThumbnail> {
       if (!mounted) return;
       setState(() {
         _cached = null;
-        _pdfPage = ThumbnailService.instance.pdfFirstPage(path);
+        _pdfPage = widget.lecture.isEpub
+            ? ThumbnailService.instance.epubCover(path)
+            : ThumbnailService.instance.pdfFirstPage(path);
       });
     });
   }
@@ -105,14 +109,18 @@ class _FileThumbnailState extends State<FileThumbnail> {
         frameBuilder: _fadeIn,
         errorBuilder: (_, _, _) => _placeholder(),
       );
-    } else if (lecture.isPdf) {
+    } else if (lecture.isPdf || lecture.isEpub) {
       content = FutureBuilder<Uint8List?>(
         future: _pdfPage,
         initialData: _cached,
         builder: (context, snapshot) {
           final bytes = snapshot.data;
-          if (bytes == null) return _placeholder(loading: !snapshot.hasError &&
-              snapshot.connectionState != ConnectionState.done);
+          if (bytes == null) {
+            return _placeholder(
+              loading: !snapshot.hasError &&
+                  snapshot.connectionState != ConnectionState.done,
+            );
+          }
 
           return Image.memory(
             bytes,
@@ -137,7 +145,7 @@ class _FileThumbnailState extends State<FileThumbnail> {
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          color: lecture.isPdf ? Colors.white : _tint.background,
+          color: (lecture.isPdf || lecture.isEpub) ? Colors.white : _tint.background,
           borderRadius: BorderRadius.circular(widget.radius),
           border: Border.all(color: AppColors.line),
         ),

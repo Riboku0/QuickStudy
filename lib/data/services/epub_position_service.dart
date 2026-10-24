@@ -79,4 +79,30 @@ class EpubPositionService {
     data['fontSize'] = size;
     await _save();
   }
+
+  Future<String?> directionFor(int lectureId) async {
+    final directions = (await _load())['direction'];
+    return directions is Map ? directions['$lectureId'] as String? : null;
+  }
+
+  Future<void> saveDirection(int lectureId, String? direction) async {
+    final data = await _load();
+    final map = Map<String, Object?>.from((data['direction'] as Map?) ?? {});
+    direction == null ? map.remove('$lectureId') : map['$lectureId'] = direction;
+    data['direction'] = map;
+    await _save();
+  }
+
+  Future<String?> locationsFor(int lectureId) async {
+    final locations = (await _load())['locations'];
+    return locations is Map ? locations['$lectureId'] as String? : null;
+  }
+
+  Future<void> saveLocations(int lectureId, String locations) async {
+    final data = await _load();
+    final map = Map<String, Object?>.from((data['locations'] as Map?) ?? {});
+    map['$lectureId'] = locations;
+    data['locations'] = map;
+    await _save();
+  }
 }
