@@ -1,0 +1,21 @@
+QuickStudy: new study/library app icon.
+Created using built-in image_gen from a fresh prompt without previous image references.
+Mechanical 512px and 48px PNG exports for store asset and thumbnail verification.
+Existing app code/icons not replaced.
+
+Use case: logo-brand.
+Create ONE completely new premium app-store icon for QuickStudy, an app for a personal book library, reading, notes and studying with flashcards. The user rejected all earlier mascot-face and owl-as-book concepts. Start from a fresh design with NO resemblance to those earlier compositions. Show unmistakably that this is a BOOKS AND STUDY APP.
+
+CREATIVE IDEA: A vivid little study library condensed into one beautiful object.
+PRIMARY HERO, 70% of visual attention: a beautifully crafted OPEN TEXTBOOK, not an animal. Two broad warm-ivory pages with a clear deep central crease, a few thick paper layers and a substantial rounded indigo-violet cover. Slight front three-quarter angle and gentle diagonal lift so the silhouette has energy. The book must be immediately recognizable at 48px. No eyes or face on its pages. No giant owl head above or behind it.
+SECONDARY STUDY CUE: two chunky rounded FLASHCARDS tucked behind the upper-right corner of the open book, visibly peeking above it, overlapping as a tiny deck. Foremost card a beautiful muted mint #91E0CC with ONE large clean deep-teal checkmark, rear card soft lilac. The cards are about one-third the book's width, large enough to read, arranged as part of the same cohesive cluster, not flying.
+WARM ACCENT AND SUBTLE OWL IDENTITY: one apricot-orange ribbon bookmark hanging down the book's central crease, with a neat V-cut end. The visible broad top of this ribbon has a tiny distilled owl-head stamp: just two ear points and two simple dark oval eye cutouts, a quiet nod to the app's established owl. This owl mark is secondary and graphic, not a separate character, no cartoon pupils, no huge facial disks. It should read as an elegant proprietary reading bookmark.
+No graduation cap, no pencil, no large mascot body, no human hands.
+
+COLOR ART DIRECTION: gorgeous coordinated editorial palette. Rich smooth full-bleed violet gradient background transitioning from deep #4630A6 at the lower-left through actual app violet #7259DA toward luminous soft #9879F4 at the upper-right. Saturated but sophisticated, NO neon. Warm ivory paper #FFF7E8, deep indigo-violet cover #382966, peach-apricot ribbon #FFB775, quiet mint flashcard #91E0CC, lilac rear card. The ivory book should glow through color contrast and soft shading, not an outer glow effect. Harmonize every color; no rainbow effect, no black field or beige flat background.
+
+STYLE: top-tier contemporary app icon art, crisp smoothly rounded shapes with subtle sculpted paper depth. A carefully art-directed 2.5D illustration with soft controlled light, elegant curved page surfaces, beautiful broad tonal gradients, restrained internal soft shadows. Matte premium materials, no shiny plastic, no metallic chrome, no fuzzy toy, no photograph, no grain or texture. Interesting detail at full size, confident clarity at small size. No tiny printed text or page lines. Details are structural: layered paper, ribbon, card deck and checkmark.
+The composition should feel inviting, calm, uplifting and competent for university students and readers, a credible polished global education app identity.
+
+COMPOSITION: one unified compact cluster, textbook centered in lower-middle and cards emerging top-right. All foreground artwork contained within the central 78% canvas, balanced weight and safe corner space for store masks. Very slight perspective, no harsh isometric distortion. Foreground image fills the icon confidently.
+DELIVER: one high-resolution square 1:1 opaque full-bleed icon, no pre-rounded outside corners, no outer frame or drop shadow around the tile. No UI mockup, no grid, no presentation sheet, no title, no lettering, no words, no watermark, no decorative sparkles, no stars, no scene. Only the finished app icon.

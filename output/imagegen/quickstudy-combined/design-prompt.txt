@@ -1,0 +1,16 @@
+Two user-supplied owl/book designs fused into one icon.
+Tool: built-in image_gen, compositing and logo editing.
+
+Use case: compositing / logo-brand.
+Combine BOTH provided owl/book designs into ONE coherent new finished app icon. The user asks to turn these two images into a single design, meaning creatively fuse their visual identities. Do not make a collage, side-by-side comparison, split panel, two logos or a sheet.
+
+Image 1: the approved black-background abstract owl/open-book logo. Use its near-black background, bold minimal unified book-shaped owl silhouette, flowing lower page curves, two upper ear/page tips, central fold, small golden beak, generous margins and clean iconic strength.
+Image 2: friendly lavender owl emerging from an open book. Use its warmth, softer approachable facial curves, paired warm-ivory facial disks, dark attentive eyes, gentle lavender layers and subtle flowing page depth.
+
+HYBRID: a SINGLE owl whose face and open-book form belong to one broad compact silhouette. Retain the clear two-page owl/book outline from image 1, but soften its cheeks and ear tips subtly with the warmth of image 2. Inside the lavender outer form, incorporate the paired warm-ivory heart-shaped eye/face patches from image 2; these sweep downward into the open-book page curves and central V crease of image 1. No separate owl sitting behind a separate book. No separate torso, hands, fingers or feet. Add only one refined soft lavender page layer along the lower outer edge from image 2 to make the book feel alive without clutter.
+Eyes: dark-plum softly oval pupils inspired by image 2, a bit smaller and more mature than its large baby-like eyes, one small ivory reflection per eye. Quietly attentive, relaxed focus and subtle curiosity. Both open, no visible eyebrows, no exaggerated eyelids, no wink, no strong thinking expression. Do not retain the aggressively slanted dark eye slits of image 1.
+Keep the small central warm apricot-gold beak and clean dark central book crease.
+
+Palette is a beautiful restrained fusion: near-black #090D11 background from image 1, gentle milky lilac #BCA6E8 and slightly deeper lavender #9981CA for the form and a single page layer, warm ivory #FFF4E0 for paired face-page surfaces, tiny golden-apricot #F2B55B beak, dark plum #2C233A eyes. Preserve some of image 1's lilac/ivory asymmetry in the lower page sweeps while keeping both eyes clearly legible and balanced.
+Finish: clean matte graphic identity, precise smooth edges, restrained broad paper-layer shading like image 2, not glossy 3D, no texture or grain, no glow or external shadow. Cozy, calm and full of quiet life, not a toy or a fierce gaming emblem.
+One centered emblem about 76% canvas width, safe margins. Opaque full square near-black background, no rounded outer corners. No text, letters, watermark, frame, stars, sparkles, props or decorations. Deliver just one unified square icon combining the best of BOTH input images.

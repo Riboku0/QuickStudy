@@ -1,0 +1,38 @@
+QuickStudy: owl and open book app icon
+Created with built-in image_gen. No CLI/API fallback.
+Master preserved at generated resolution; 512px PNG exported for Google Play; 48px preview used to check small-size legibility.
+References: existing owl_salute.webp and owl_night.webp, current violet theme #7259DA.
+
+DESIGN PROMPT
+Use case: logo-brand.
+Asset type: a definitive premium Google Play app icon for QuickStudy, a personal book library, reading and flashcard study companion.
+Create ONE extraordinary finished app icon, square 1:1, high resolution. Not a mockup, not a logo presentation sheet, no labels.
+
+REFERENCE INPUTS:
+Image 1 owl_salute.webp and Image 2 owl_night.webp are references ONLY for the established mascot's identity. Keep this exact recognizable owl character. Ignore their backgrounds, gestures, moon, plants, stars and scenery. This is NOT the geometric owl-book mask from previous logo experiments.
+Identity invariants: very pale lavender owl, compact rounded head, two modest pointed ear tufts, two large joined warm-white circular facial disks making a soft heart-shaped mask, wide round deep dark-plum eyes with a large and a small white glint in each eye, small amber down-pointing triangular beak, softly rounded connected wings. The expression must be alert, warmly curious and reassuring, never sad, sleepy, angry or predatory. Do not invent a different owl or copy a competitor mascot.
+
+DESIGN IDEA: "Your library and study companion."
+A close, iconic portrait from head to chest of the familiar owl proudly and gently hugging ONE open book across its lower chest. The owl looks directly at the viewer, forming an inviting emotional connection. The owl face is the dominant unmistakable element. Both softly curved wings embrace the lower outer corners of the book, visually integrating owl and book as one strong compact silhouette.
+The open book is beautifully simplified: two broad warm-ivory pages, thick saturated deep-violet cover framing the curved page edges, a strong clean central crease and a single short amber bookmark. One side has only two chunky staggered page edges, subtly alluding to a deck of study cards; they are part of the book, NOT extra floating cards. Reading, library and study are expressed through this one object. No text, letters, numbers, diagrams, tiny page lines or badges on the book.
+
+COMPOSITION: fill the image confidently. Owl from about 12% below the top to 87% height, about 78% of canvas width. Ears and book stay safely away from corners so Google Play rounding will not clip them. The large eyes occupy the upper-middle part and remain clear at 48 pixels. Book occupies lower 27% of canvas. No feet or full body. Visually balanced near-frontal pose, smooth elegant silhouette, warm connection, no visual clutter. The book's paired curved page shapes should subtly echo the paired white facial disks.
+
+PALETTE: rich full-bleed brand-violet background, #7259DA, with only an extremely subtle deeper #5D46BC gradient toward the bottom. Mascot pale lavender #E6E0EC, gentle lavender shading #CEC5DA, connected wings #D3CADF, facial disks and book pages warm-white #F8F5FA, large eyes deep plum #2D2838, beak and short bookmark warm amber #E9A15A. Book cover deep violet #49338E for crisp separation. No split black-and-white mask, no black background.
+
+ART DIRECTION: expertly crafted contemporary 2D mascot icon with restrained soft dimensional shading and precise smooth vector-like edges. Broad sculpted rounded shapes, exceptional color harmony and thumbnail legibility. Sophisticated but approachable for university students and readers of any age. Same lovable character as the app, elevated into a distinctive memorable brand asset. Minimal refined highlights, NOT glossy plastic, NOT photorealistic, NOT fuzzy 3D toy, NOT generic stock clipart. No heavy black contour lines, no paper texture or grain.
+
+OUTPUT CONSTRAINTS: edge-to-edge opaque square background, no pre-rounded outer corners, no external shadow or surrounding frame. No shelves, room, scenery, stars, sparkles, leaves, moon, hat, glasses, pencil, brain, lightning bolt, floating cards, extra books, UI, hands, brand text, typography or watermarks. Only this single finished app icon.
+
+RESEARCH SOURCES
+https://play.google.com/store/apps/details?id=com.quizlet.quizletandroid
+https://play.google.com/store/apps/details?id=com.knowt.app
+https://play.google.com/store/apps/details?id=com.duolingo
+https://play.google.com/store/apps/details?id=org.readera
+https://play.google.com/store/apps/details?id=com.remnote.v2
+https://play.google.com/store/apps/details?id=com.ichi2.anki
+https://play.google.com/store/apps/details?id=com.twodoor.bookly
+https://blog.duolingo.com/reshaping-duo/
+https://developer.android.com/distribute/google-play/resources/icon-design-specifications
+
+Design recommendation is a visual synthesis, not a claim about conversion or ranking performance.

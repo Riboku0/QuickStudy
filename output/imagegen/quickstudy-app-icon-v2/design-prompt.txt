@@ -1,0 +1,22 @@
+QuickStudy app icon revision: The owl is the book.
+Created using built-in image_gen, followed by mechanical PNG size exports.
+Master retained without replacing earlier concepts.
+
+FINAL PROMPT
+Use case: logo-brand / mascot identity redesign.
+Create one striking, distinctive finished QuickStudy app icon. This is a deliberate concept redesign of the prior owl-holding-book icon, with permission to change the owl's eyes and some anatomy. Keep the familiar app mascot's pale lavender, ivory, purple and amber family and gentle owl identity, but develop an ownable graphic character.
+
+Input image 1 is the existing QuickStudy owl mascot identity reference (owl_night.webp). Use only its owl and color identity; ignore all foliage, moon and stars.
+Input image 2 is the PREVIOUS app icon, supplied to show what to move away from: owl physically holding/reading a separate open book. Replace that composition completely.
+
+NEW SINGLE IDEA: THE OWL IS THE BOOK.
+One compact upright closed book transformed into an owl, not a creature holding a prop. Its broad rounded lavender front cover IS the owl's torso and face. The upper silhouette has two short soft ear tufts and a gentle dip; the bottom silhouette has a beautifully rounded book-cover corner. A small visible left spine in deep violet and TWO very broad ivory/lilac page layers stepping out along the lower-right edge make the body unmistakably a thick book and subtly a deck of study cards. No tiny pages. These connected layers are part of the same object, never floating. Subtle three-quarter perspective, about 8 degrees, nearly frontal so both eyes remain equally legible. Face occupies most of the cover. The entire owl-book must read as one memorable silhouette and symbol.
+
+FACE REDESIGN, IMPORTANT: Replace the old perfect round baby eyes and double glints with charming large vertical dark-plum rounded-pill pupils, a single simple cream oval highlight in each. The two ivory facial patches are soft rounded teardrops, not perfect circles: together they form a gentle heart-shaped face. Give one eye a very slight curious lift and let pupils look subtly toward the viewer's upper right, creating a clever attentive confident study companion. No heavy eyebrows, no sleepy half-closed lids, no aggressive slants. Small clean amber triangular beak between and below the eyes. Keep it friendly and modern, suitable for a university student rather than a nursery toy. No mouth or teeth.
+No hands, no arms holding anything, no full bird body, no feet. No separate open book. No graduation hat or spectacles.
+
+ART DIRECTION: premium designed mascot-symbol, beautifully simple 2D graphic design, broad organic curves, crisp vector-like edges, restrained dimensionality only from a few broad cel-shaded planes. Do not use glossy airbrushed 3D plastic. No tiny feather marks. Avoid photorealism, textures, grain, clipart outlines, inner decorative lines, generic AI glitter. Aim for the simplicity and recognizability of an excellent proprietary app brand. Clearly different from a conventional owl reading a book or the sharp owl-mask logo.
+
+COLOR: opaque rich deep-violet background #4C359B, almost flat with extremely subtle #7259DA illumination near upper center. Main owl-book cover pale lavender #DDD4EF, clean warm ivory facial patches #F8F5FA, side spine/structural edge deep violet #7259DA, lower stacked pages ivory #F8F5FA and soft lavender #BCAEDE, eyes deep plum #2D2838, beak amber #E9A15A. Small warm accent only at beak; do not add a competing gold banner. Plenty of value contrast.
+
+COMPOSITION AND OUTPUT: square 1:1, high resolution, one final app icon only. Character fills about 76% canvas width and 77% height, visually centered with clear safe margins. No pre-rounded outer corners or border, full-bleed opaque violet background. Optimize for a strong 48-pixel thumbnail. No title, text, letters, logo presentation board, scenery, moons, stars, UI, badges, sparkles, extra books, floating flashcards, frame, watermark or external drop shadow.

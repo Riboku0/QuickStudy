@@ -1,0 +1,18 @@
+QuickStudy: user's own thinking and concentration reflected by the owl eyes.
+Built-in image_gen targeted eye expression edit; mechanical PNG size exports.
+Only selected user-state expression saved here. Prior artwork retained.
+
+Use case: precise-object-edit.
+Edit ONLY the eyes and expression details of the provided owl-book app icon. Preserve every other part exactly.
+
+IMPORTANT HUMAN CONTEXT: the owl REPRESENTS THE USER'S OWN EMOTIONAL STATE while studying or reading something challenging. It is NOT greeting the user, not a welcoming assistant, not a teacher looking at the viewer. The expression should be instantly recognizable as "Hmm... I'm thinking hard, trying to connect this idea." A focused student with mild puzzlement, curiosity and determination. Show the moment of mentally working through a question, not a smile or social invitation.
+
+EXPRESSION GEOMETRY:
+- Both eyes open but intentionally asymmetric: the viewer-left eye more open and alert, the viewer-right eye gently narrowed by a shallow upper lid (about 20% less vertical opening), showing concentration.
+- Both dark-plum pupils/irises look together toward the UPPER RIGHT of the image, a clear but moderate off-camera thinking gaze. Move the irises within their existing ivory face-page eye fields; do NOT look straight at the viewer and do NOT make them cross-eyed or dramatically roll upward.
+- One lavender eyebrow above the viewer-left eye rises in a soft questioning arc. The other above viewer-right is slightly lower and almost horizontal with a subtle inward contraction, giving thoughtful effort rather than an angry V.
+- One SMALL consistent ivory reflection per dark eye, so gaze remains clean, mature and readable.
+- Keep contours smooth, rounded and simple. NO eyelashes, no pointy eyeliner, no lower-eye bags or smile lines. Avoid sleepy lids, smugness, cheekiness, wink, fear, sadness, aggression or a broad startled look.
+- The user emotion must come from a clear combination of sideward-upward gaze + raised questioning brow + slightly narrowed opposite eye. It must look like a person concentrating on a puzzle, not a friendly mascot meeting someone.
+
+INVARIANTS: same exact lavender owl/open-book outer silhouette, same ivory page-shaped face patches, same small apricot beak, exact midnight-plum background, same negative-space central fold, same layered right page edge, same position and scale. Same beautiful palette and matte graphic finish. Do not change the actual face/page anatomy, book shape or add new body parts. No hands, props, glasses, mouth, blush, text, symbols, question marks, sparkles, shadow, frame, scenery or watermark. ONE finished square icon.

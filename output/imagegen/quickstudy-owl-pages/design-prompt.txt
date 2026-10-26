@@ -1,0 +1,45 @@
+QuickStudy: owl face and open pages as one emblem.
+Built-in image_gen used, followed by mechanical PNG exports at 512px and 48px.
+Final source was a structural redesign of the unfurling-owl concept based on the established app mascot.
+Existing project app icons were not replaced.
+
+INITIAL REFERENCE GENERATION PROMPT
+Use case: logo-brand.
+Asset: ONE exceptional finished QuickStudy app icon, square, high resolution, for a personal library, reading and flashcard study app.
+
+REFERENCE IMAGE: the attached owl_night.webp contains the established app mascot. Reference ONLY the owl's gentle rounded head, modest ear tufts, paired warm-white face patches, lavender identity, attentive dark-plum eyes and small apricot triangular beak. Ignore its leaves, moon, stars and scenery. You may refine eyes and proportions. Keep recognition as this app's owl rather than replacing it with a generic animal.
+
+ART DIRECTOR'S CONCEPT: THE OWL'S WINGS UNFURL INTO BOOK PAGES.
+Invent one beautifully integrated proprietary emblem. At first glance, a distinctive friendly wise owl; on second glance, its two lower wings are the two pages of an open book. The wings themselves ARE pages, not hands holding a separate book. The upper half is a softly rounded owl head, the lower half flows continuously into two broad elegant page-shaped wings that meet at a clean central V-shaped fold. A gentle asymmetric page-turn makes it memorable: viewer-right wing/page curls upward slightly at its outer tip, with ONE offset broad lavender sheet behind it, subtly suggesting a study flashcard. Viewer-left wing/page sweeps down into the fold. This must be a deliberate unified owl/book silhouette, not a collage of a bird, book and cards.
+The wing-page shapes have warm-ivory inner surfaces and milky-lavender outer contours; the tiny negative-space book crease defines the fold. No rectangular book cover, no spine, no closed-book body, no wing-fingers. No actual human hands. No bird sitting on a stack of books. No separate held prop. No full bird feet, no tiny feathers. Broad recognizable silhouette with slight gentle asymmetry rather than a heraldic symmetrical owl-mask.
+
+FACE: warm, quietly clever, attentive. Two fully open softly rounded almond-shaped eye areas in a paired warm-ivory face mask. Dark-plum rounded irises of moderate size, a single crisp little ivory catchlight in each, and a very subtle gaze toward the lifted page. No narrowed angry brows, no predatory eye cutouts. Eyes expressive without giant baby-anime circles. No wink, no sleepy eyelids, no lashes, no glasses. One clean small apricot downward beak centered between face patches. The head occupies about 52% of the emblem, so it remains the recognizable established mascot.
+
+COLOR DESIGN: luminous but muted natural harmony, not neon. Full-bleed dark velvety midnight-plum #292337 background, flat and opaque. Main owl lavender #B6A7DE, slightly deeper lavender #8973BE for ONE broad shadow plane, face and inner page wings warm ivory #FFF5E4, irises deep plum #30273F, beak small apricot #F2B879. Let pale lavender and warm ivory dominate the mark, with apricot only as a tiny warm counterpoint. Rich contrast and elegant color balance. This palette belongs to the app's violet-and-pale-surface UI, elevated for a store icon. No electric purple background, no rainbow, teal, charcoal-gray bird, parchment background or metallic gold.
+
+STYLE: sophisticated flat graphic mascot identity with very restrained paper-layer relief, broad matte cel-shaded shapes, pristine smooth vector-like edges, no outlines. Thoughtful visual balance and clean negative space. It should be the work of a strong contemporary identity designer, not a stock 3D toy illustration. No glossy plastic, airbrushed glow, shiny bevels, photorealism, grain, texture, atmospheric lighting, gradients or external drop shadow. No tiny lines or page text. The whole idea should read as an icon at 48 pixels.
+
+COMPOSITION: one large centered emblem, about 76% canvas width and 74% canvas height, generous safe corners. The whole owl-page silhouette is visible; no cropped head or wings. Slightly lively asymmetry is in the lifted page, not in a tilted square tile. Full square opaque background without pre-rounded corners, border or frame. Deliver just ONE finished icon, not a board or mockup.
+EXCLUDE: title, text, lettering, numbers, wordmark, logos of other brands, watermark, app UI, scenery, sparkles, stars, moon, hats, badges, decorative circles, flying cards, extra objects.
+
+FINAL STRUCTURAL REFINEMENT PROMPT
+Use case: precise-object-edit / structural logo redesign.
+Edit the provided icon. KEEP its beautiful palette exactly: midnight-plum background, milky lavender, warm ivory and small apricot beak, and its matte clean style. Change the STRUCTURE completely so there is no owl sitting behind a book.
+
+The NEW ICON is a SINGLE LIVING OPEN-BOOK FACE.
+REMOVE the entire separate open book from the lower half and REMOVE the owl torso. Replace the two objects with one unified compact OWL-BOOK EMBLEM. The two large ivory shapes around the eyes ARE the two open book pages. Each eye is printed/embedded visually in its corresponding page. There is NO owl above a book and NO horizontal boundary between a head and a lower book. The page pair and the face are exactly the same shape.
+
+Precise silhouette: two broad subtly curved lavender book-cover halves meet at a downward central fold. Their upper outer corners rise into short rounded owl ear tufts. Their outer edges curve smoothly down like owl cheeks and open-book page edges. Their lower edges sweep inward and downward to a single rounded central V point, visibly an open book. The eye-page shapes are warm ivory, generous rounded on the outside but tapering toward the central lower fold, NOT circles. A narrow dark-plum vertical negative-space crease runs between the two pages from the small apricot triangular beak to the bottom central V. A single slim offset lavender page edge on viewer-right subtly evokes a second study card. Do NOT add a book under the face. Do NOT add a torso or wings. The entirety of the image is this one broad face/book monogram.
+
+Face remains warm, attentive and familiar as the app's owl: two medium dark-plum softly oval pupils with ONE small ivory catchlight each, no eyebrows, no angry eye slits, no wink, no giant baby eyes, small apricot beak at the center page fold. Friendly sophisticated mascot distilled as a proprietary brand symbol rather than a full character illustration.
+
+The silhouette should be broad and compact, slightly wider than tall, with beautiful precise flowing curves, clean layered flat fills and strong negative space. Keep tiny asymmetry only at the lifted right page edge. No gloss, bevels, 3D, glow, grain, shadows or gradients. Approximately 75% canvas width and 68% height, centered with safe margins.
+Square full-bleed opaque background, no rounded outer corners, no frame, no text, no letters, no watermark. Produce ONE refined finished icon. The most important instruction: book pages ARE the face, not a separate object below it.
+
+SOURCES
+https://blog.duolingo.com/reshaping-duo/
+https://play.google.com/store/apps/details?id=ai.saveall.app
+https://play.google.com/store/apps/details?id=co.fable.fable
+https://play.google.com/store/apps/details?id=net.tonysoft.bookmory
+https://play.google.com/store/apps/details?id=com.headway.books
+https://developer.android.com/distribute/google-play/resources/icon-design-specifications

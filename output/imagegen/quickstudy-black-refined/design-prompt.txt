@@ -1,0 +1,32 @@
+QuickStudy: restrained refinement of user-preferred black-background owl-book mark.
+Mode: built-in image_gen; mechanical PNG exports at 512px and 48px.
+Edit target: user attachment codex-clipboard-a851ee8d-f876-4670-9285-85975ad11f57.png.
+Secondary warmth reference: codex-clipboard-aedcb945-402a-4f25-a829-31540f497daa.png.
+User rejected the exaggerated thinking expression; this version preserves abstraction and negative-space eyes.
+
+COLOR REFINEMENT PROMPT
+Use case: precise-object-edit.
+Create one restrained refinement of the user's FAVORITE original owl/open-book logo.
+
+INPUT ROLES, very important:
+Image 1 (black background, split lavender and ivory abstract owl-book mask) is the EDIT TARGET. Its silhouette, abstraction, color split and composition are the approved foundation.
+Image 2 (full round owl with an open book on dark purple) is ONLY a reference for the soft lavender/ivory warmth and comforting mood. Do NOT borrow its body, round pupils, book, pages or layout.
+
+User specifically rejected the recent exaggerated thinking face and says the black-background logo is still the best. They want a little more life and calm emotion through extremely subtle eyes and more beautiful harmonious colors, NOT a redesign or cartoon expression.
+
+PRESERVE STRICTLY: the exact recognizable two-page abstract owl silhouette of IMAGE 1, the tall outer page/ear tips, smooth outward vertical sides, lower flowing book-page curves meeting at the central downward point, left lavender half/right ivory half, tiny central amber beak with dark separation, overall size, centered composition and generous margins. Keep the NEAR-BLACK background (not purple).
+
+CHANGE ONLY TWO THINGS:
+1. Eyes: minimally soften the original dark negative-space almond openings to suggest quiet concentration, curiosity and ease—the emotional state of a reader settling into understanding. Preserve the elegant upward outer eye contours and attentive almond silhouette, but reduce the severe inward brow slope slightly, round the lower contours a little fuller and soften the sharpest inner/outer corners. Eyes remain dark simple negative-space openings, not circular eyes or added irises. The viewer-left eye can be only 4% more open than the right, almost imperceptible natural focus. NO eyebrows, NO eyelid strokes, NO cartoon pupils or glints, NO wink, NO looking-up facial exaggeration. Keep awake and focused, not sleepy, angry, smug or sad.
+2. Color refinement: left half a living soft lilac with a VERY subtle broad tonal transition from #B8A0EE near the upper left to #C7B4F0 near the lower center, still quiet and sophisticated, not electric purple. Right half soft luminous warm ivory #FFF4DF, not yellowed beige or stark white. Small beak warm honey-apricot #F2B95E, not bright orange. Background and eye openings smooth near-black #090D11, all the way to the square edges. This lilac / warm ivory / small honey accent on near-black should feel harmonious, peaceful and quietly alive, appropriate to the app's violet reading/study interface.
+
+STYLE: professional refined minimal logo, smooth clean vector-like edges, matte clean shapes. Soft color depth only; no texture, grain, 3D, bevel, shine, outer glow, spotlight, decorations, or gradients in the background. No added feature symbols, books, cards, stars, wings, faces, mouth, lashes, blush, eyebrows, outlines, borders or text. Preserve the strength and simplicity of image 1.
+Deliver just ONE finished square logo image.
+
+FINAL EYE-CONTOUR REFINEMENT PROMPT
+Use case: precise-object-edit.
+Make ONE targeted correction to this exact logo: soften the eye openings so the face feels calm and focused rather than fierce. All other pixels/structures should be preserved.
+
+The eyes currently still have straight steep downward-sloping upper edges and pointed aggressive outer corners. Replace ONLY these two dark cutout shapes with slightly fuller SOFT ALMONDS: the upper edge of each eye has a gently convex rounded arch, not a straight diagonal. Reduce the severe brow slope by about half, raise the inner upper portion a little, and round the outer tips. Keep the lower eye curves softly rounded. They should look gently attentive, like a reader concentrating comfortably. Not circles, not owl baby eyes, not flat sleepy slits. The difference should be visible in the eye contour, while expression remains subtle. Both eyes remain simple near-black NEGATIVE SPACE, with no pupils, irises, reflections, eye whites, eyebrows, eyelid lines or added facial details. Keep visual balance, with the viewer-left opening a tiny bit more open, no extreme asymmetry.
+The emotional quality is relaxed engagement and curiosity. No anger, sharp diagonal brows, smirk, wink, sadness, surprise or comic thinking pose.
+Keep EXACTLY the beautiful current soft lilac left half, warm ivory right half, small honey-apricot beak and near-black background. Preserve entire outer owl-book silhouette, tall ear/page tips, central crease, scale, square composition and margins. Do not change palette, add objects, texture, text, glow, shadows, frame or watermark. Only a refined eye contour.

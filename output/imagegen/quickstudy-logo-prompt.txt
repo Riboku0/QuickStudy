@@ -1,0 +1,22 @@
+QuickStudy logo edit
+Tool: built-in image_gen (image editing), not CLI.
+Output: quickstudy-logo-refined.png
+Original: user-attached owl/open-book logo.
+Identity evidence: lib/main.dart, lib/ui/core/themes/study_tone.dart,
+lib/data/repositories/settings/settings_repository.dart, assets/owl/.
+
+FIRST EDIT PROMPT
+Use case: precise-object-edit / logo-brand.
+Asset type: refined square app brand logo for QuickStudy, a friendly reading and study app for books, notes, flashcards and quizzes.
+Input image 1 is the EDIT TARGET, not merely inspiration. Edit that attached owl/book logo.
+Primary request: adapt this existing logo to the actual app's visual identity: welcoming, calm, clever, supportive study companion rather than an intimidating owl.
+Preserve: the single centered clean owl-face / open-book fusion; the recognizable broad two-page silhouette with ear tips at the top, flowing page edges and a downward central book fold; the two adjoining halves, separate central small beak and generous empty margin. Keep the reference's square composition and approximately the same emblem size.
+Change: replace the current angry, sharply narrowed eye holes with noticeably larger, open, gently rounded eye openings, with curved friendly upper contours; eyes should convey an attentive approachable owl without looking childish. Refine the silhouette into balanced, optically symmetrical smooth curves, slightly softened ear tips. Preserve the eyes as simple dark negative-space shapes; no detailed irises, no eyelashes.
+Exact app palette: left page/face half rich violet #7259DA (not the pale pastel purple of the input); right page/face half cool very pale lavender-white #F8F6FB (not yellowish ivory); the small central beak warm yellow #FFD84D; seamless solid dark plum background #15131B. Eye holes and central separation same dark plum as background.
+Style: exceptionally clean flat vector-like professional app mark, precise crisp edges, solid flat fills. A distilled logo, readable at small sizes. No texture, no grain, no bevel, no shadows, no glow, no 3D, no gradients. Do not add books, caps, sparks, characters, interface or scenery. No text, no wordmark, no watermark. Deliver only the single final square edited image, not a presentation board or mockup.
+
+FINAL REFINEMENT PROMPT
+Use case: precise-object-edit.
+Input image 1 is the edit target: the QuickStudy owl-book logo just produced.
+Make one targeted change ONLY: both dark eye openings must be friendly, near-circular slightly vertical soft ovals, like a gentle attentive owl study companion. REMOVE the pointed outer corner, the flat diagonal brow, and every aggressive slanted or cat-eye cue. Both apertures must be entirely smooth rounded shapes with no sharp ends, about 20 percent taller than their current height and slightly narrower. Angle at most very subtly toward center, almost upright. Let the owl look calm, curious and approachable. Keep these eye holes as simple dark plum negative space, without irises or extra face details.
+Keep EVERYTHING ELSE unchanged: the exact outer owl/open-book silhouette, left rich violet #7259DA, right pale lavender-white #F8F6FB, small yellow #FFD84D central beak, dark plum #15131B background, centered square composition, same framing and scale, clean flat logo treatment. No text or added elements. Single finished logo image.

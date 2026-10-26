@@ -1,0 +1,21 @@
+QuickStudy face-only mascot app icon.
+Created with built-in image_gen; mechanical 512px PNG export.
+Palette based on active lib/ui/core/themes/study_tone.dart.
+Earlier designs preserved, no consuming app code changed.
+
+Use case: logo-brand.
+Task: completely new app icon design for QuickStudy. The user rejected the prior owl-holding-book and owl-shaped-book designs and their colors and requests a fresh design fitting the ACTUAL APP UI.
+
+Input reference image: established QuickStudy owl mascot. Use this only to preserve species, paired white facial mask, small warm amber beak and approachable character. Do not reuse the body, gesture, room, scenery, photographic/painterly background, feathers or feet. The user explicitly permits changing the eyes and owl details.
+
+NEW CONCEPT: a single beautifully distilled OWL FACE WITH A KNOWING WINK, no book of any kind. A modern proprietary mascot emblem, flat 2D visual identity for a thoughtful reading and study app.
+Build one broad compact rounded owl head silhouette, slightly wider than tall, with two modest softly pointed ear tufts and round cheeks flowing into a smooth U-shaped chin. The two white face patches join as a softly scalloped heart-shaped mask, with a clean shallow dip between the eyes. Emblem should be balanced and graphic, with a gently tilted feeling from facial expression rather than a 3D perspective.
+The viewer-left eye is open: dark-plum rounded vertical oval, moderate size, with just ONE small simple light reflection. Viewer-right eye is a restrained warm confident wink: one clean bold shallow upward arch with rounded terminals, expressive without looking cheeky or childish. Small amber downward triangle beak centered below, softly rounded. No eyebrows, eyelash, blush, teeth, mouth, nostrils, smile, glasses or unnecessary marks. Avoid oversized baby eyes. Convey quietly clever and welcoming.
+
+CRUCIAL PALETTE: match the actual UI, which uses soft near-white lavender backgrounds, rounded white cards and violet accents. Background is flat extremely pale lavender #F8F6FB, edge to edge. Owl head main fill is the actual medium muted violet #7259DA, NOT neon electric purple. Face patches warm near-white #FFFFFF. Eye and wink deep muted plum #302B43. Beak is the only warm accent: muted apricot amber #E9A15A. Keep to these five colors. The outer head should feel like the same family as the UI's rounded violet buttons, and the white mask like its white cards. No navy, copper, sage, charcoal book cover, beige parchment field or saturated full-purple backdrop.
+
+FINISH: premium simple flat vector-style graphic, solid matte fills, impeccable smooth curves and thoughtful negative space. No gradients, drop shadows, airbrush, glow, shading, 3D, plastic shine, texture or grain. Extremely readable at small icon sizes, elegant enough for adult readers and students. The distinctive facial expression and silhouette are the whole identity. Do not turn this into an existing commercial owl mascot.
+
+COMPOSITION: square 1:1 opaque image. One centered head emblem filling 74% canvas width and about 63% height, generous balanced safe space, optically centered slightly above the exact center. No full body or wings. Full square background without baked rounded corners or borders.
+HARD EXCLUSIONS: no books, pages, card layers, book spines, flashcards, arms, hands, graduation caps, stars, floating elements, badges, circles behind the head, UI or mockup, text, lettering, logos, wordmark, frame or watermark.
+Deliver just ONE finished app icon, not a grid or presentation.
