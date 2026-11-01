@@ -24,6 +24,25 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Fix OCR repository compatibility
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          cache = Path(
+              os.environ.get("PUB_CACHE", str(Path.home() / ".pub-cache"))
+          )
+          for file in cache.glob(
+              "hosted/*/flutter_tesseract_ocr-*/android/build.gradle"
+          ):
+              text = file.read_text()
+              file.write_text(
+                  text.replace("jcenter()", "mavenCentral()")
+              )
+              print(f"Patched: {file}")
+          PY
+
       - name: Build APK
         run: flutter build apk --release
 
